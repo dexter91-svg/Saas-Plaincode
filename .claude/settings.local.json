@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -c public/widget.js)",
+      "Bash(npx tsc *)",
+      "Bash(netstat -ano)",
+      "Bash(curl -s -m 15 -o - -w \"\\\\nHTTP_STATUS:%{http_code}\\\\n\" http://localhost:3000/api/manual-preview/users)",
+      "Bash(python -m http.server 8123 --bind 127.0.0.1)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://127.0.0.1:8123/real-site-test.html)",
+      "Bash(curl -s -i -X GET \"http://localhost:3000/api/conversations/messages?conversationId=02c96daf-84a8-4512-aadf-55121fd73deb&chatbotId=0e243de1-e8d7-4846-b4a6-04341750b7b4\" -H \"Origin: http://127.0.0.1:8123\")",
+      "Bash(curl -s \"http://localhost:3000/api/conversations/messages?conversationId=02c96daf-84a8-4512-aadf-55121fd73deb&chatbotId=0e243de1-e8d7-4846-b4a6-04341750b7b4\" -H \"Origin: http://127.0.0.1:8123\")",
+      "Bash(curl -s -o /dev/null -w \"known-good-conv \\(localhost origin\\): %{http_code}\\\\n\" \"http://localhost:3000/api/conversations/messages?conversationId=c4595046-545d-4f26-8030-3793425a3784&chatbotId=0e243de1-e8d7-4846-b4a6-04341750b7b4\")",
+      "Bash(curl -s -o /dev/null -w \"new-conv \\(localhost origin, no Origin header\\): %{http_code}\\\\n\" \"http://localhost:3000/api/conversations/messages?conversationId=02c96daf-84a8-4512-aadf-55121fd73deb&chatbotId=0e243de1-e8d7-4846-b4a6-04341750b7b4\")",
+      "Bash(curl -s -o /dev/null -w \"new-conv \\(cross Origin header\\): %{http_code}\\\\n\" \"http://localhost:3000/api/conversations/messages?conversationId=02c96daf-84a8-4512-aadf-55121fd73deb&chatbotId=0e243de1-e8d7-4846-b4a6-04341750b7b4\" -H \"Origin: http://127.0.0.1:8123\")",
+      "Bash(curl -s -o /dev/null -w \"chatbots/me: %{http_code}\\\\n\" \"http://localhost:3000/api/chatbots/me\")",
+      "Bash(curl -s -o /dev/null -w \"db-test: %{http_code}\\\\n\" \"http://localhost:3000/api/db-test\")",
+      "Bash(curl -s \"http://localhost:3000/api/db-test\")",
+      "Bash(powershell -NoProfile -Command \"Stop-Process -Id 10224 -Force\")",
+      "Bash(echo \"exit: $?\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000)",
+      "Bash(taskkill //F //IM python.exe)",
+      "Bash(pkill -f \"http.server 8123\")",
+      "Bash(curl -s -o /dev/null -w \"settings: %{http_code}\\\\n\" http://localhost:3000/settings)",
+      "Bash(curl -s -o /dev/null -w \"settings: %{http_code}\\\\n\" http://localhost:3000/dashboard -H \"Cookie: mock-auth=1\")",
+      "Bash(curl -s -o /dev/null -w \"settings: %{http_code}\\\\n\" http://localhost:3000/settings -H \"Cookie: mock-auth=1\")",
+      "Bash(curl -s \"http://localhost:3000/api/conversations/messages?conversationId=af999dc3-8ae6-4856-96d9-387c5a120d5d&chatbotId=0e243de1-e8d7-4846-b4a6-04341750b7b4\")",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(len\\(d.get\\('messages',[]\\)\\)\\); [print\\(m['role'], '|', m['content'][:60]\\) for m in d.get\\('messages',[]\\)]\")",
+      "Bash(npx eslint *)"
+    ]
+  }
+}
