@@ -292,7 +292,9 @@ export default function LiveConversationsInbox() {
             <p className="p-4 text-center text-sm text-slate-500">No conversations yet.</p>
           ) : (
             <ul className="divide-y divide-slate-700/60">
-              {conversations.map((conv) => (
+              {[...conversations]
+                .sort((a, b) => (b.requestsHuman ? 1 : 0) - (a.requestsHuman ? 1 : 0))
+                .map((conv) => (
                 <li
                   key={conv.id}
                   className={conv.requestsHuman ? "border-l-2 border-amber-400" : ""}
