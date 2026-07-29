@@ -14,6 +14,7 @@ import {
 import { extractFirstEmailFromMessages } from "@/lib/extract-email";
 import { createPendingForwardFromChat } from "@/lib/forward-to-support";
 import { getHandoffMode, toOpenAIHistoryMessages } from "@/lib/conversation-handoff";
+import { detectsHumanRequest } from "@/lib/detect-human-request";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -389,6 +390,16 @@ export async function POST(req: NextRequest) {
         "INSERT INTO chat_messages (id, conversation_id, role, content) VALUES (?, ?, 'user', ?)",
         [userMsgId, conversationId, question]
       );
+      if (detectsHumanRequest(question)) {
+        try {
+          await conn2.execute(
+            "UPDATE conversations SET requests_human = 1 WHERE id = ? AND requests_human = 0",
+            [conversationId]
+          );
+        } catch {
+          // Column not yet migrated — safe to ignore.
+        }
+      }
       await conn2.end();
     }
 

@@ -53,6 +53,23 @@ export function playNewMessageSound(): void {
   ]);
 }
 
+/**
+ * Urgent ascending alert played when a customer explicitly asks to speak to a human/agent.
+ * Distinct from the regular new-message beep so staff know to take over immediately.
+ */
+export function playHumanRequestSound(): void {
+  playToneSequence(
+    [
+      { freq: 660, durationMs: 110, gapMs: 45 },
+      { freq: 880, durationMs: 110, gapMs: 45 },
+      { freq: 1100, durationMs: 110, gapMs: 45 },
+      { freq: 880, durationMs: 110, gapMs: 45 },
+      { freq: 1100, durationMs: 180 },
+    ],
+    0.38
+  );
+}
+
 export function playTestNotificationSound(): void {
   if (!audioUnlocked) {
     unlockAgentNotificationAudio();

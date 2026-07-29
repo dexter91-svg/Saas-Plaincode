@@ -1,0 +1,234 @@
+-- ============================================
+-- Plainbot — RENDER INIT (Schema + All Migrations)
+-- Paste this entire file into the Render MySQL shell
+-- ============================================
+
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
+
+-- ============================================
+-- USERS
+-- ============================================
+CREATE TABLE IF NOT EXISTS users (
+  id              CHAR(36) PRIMARY KEY,
+  email           VARCHAR(255) NOT NULL UNIQUE,
+  password_hash   VARCHAR(255) NOT NULL,
+  name            VARCHAR(255) DEFAULT NULL,
+  plan            ENUM('free', 'growth', 'pro', 'agency') DEFAULT 'free',
+  store_type      ENUM('shopify', 'woocommerce', 'custom') DEFAULT NULL,
+  conversation_limit INT NULL DEFAULT 100,
+  forward_email   VARCHAR(255) DEFAULT NULL,
+  stripe_customer_id VARCHAR(255) DEFAULT NULL,
+  stripe_subscription_id VARCHAR(255) DEFAULT NULL,
+  notify_sound_new_conversation TINYINT(1) NOT NULL DEFAULT 1,
+  notify_sound_ongoing_message TINYINT(1) NOT NULL DEFAULT 0,
+  complimentary_credits INT DEFAULT 0,
+  created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_users_email (email),
+  INDEX idx_users_plan (plan),
+  INDEX idx_users_store_type (store_type),
+  INDEX idx_users_stripe_subscription (stripe_subscription_id)
+) ENGINE=InnoDB;
+
+-- ============================================
+-- PASSWORD_RESETS
+-- ============================================
+CREATE TABLE IF NOT EXISTS password_resets (
+  id              CHAR(36) PRIMARY KEY,
+  user_id         CHAR(36) NOT NULL,
+  token_hash      VARCHAR(64) NOT NULL,
+  expires_at      TIMESTAMP NOT NULL,
+  used_at         TIMESTAMP NULL DEFAULT NULL,
+  created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_password_resets_user (user_id),
+  INDEX idx_password_resets_hash (token_hash),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================
+-- CHATBOTS
+-- ============================================
+CREATE TABLE IF NOT EXISTS chatbots (
+  id              CHAR(36) PRIMARY KEY,
+  user_id         CHAR(36) NOT NULL,
+  name            VARCHAR(255) DEFAULT 'Plainbot',
+  website_url     VARCHAR(500) NOT NULL,
+  website_title   VARCHAR(500) DEFAULT NULL,
+  website_description TEXT DEFAULT NULL,
+  website_content LONGTEXT DEFAULT NULL,
+  products_json   JSON DEFAULT NULL,
+  personality     ENUM('Friendly', 'Professional', 'Sales-focused', 'Premium Luxury') DEFAULT 'Friendly',
+  language        VARCHAR(20) DEFAULT 'en',
+  guard_rails       TEXT DEFAULT NULL,
+  uploaded_docs_text LONGTEXT DEFAULT NULL,
+  widget_snippet    TEXT DEFAULT NULL,
+  widget_accent_color VARCHAR(7) DEFAULT NULL,
+  widget_logo_mime VARCHAR(50) DEFAULT NULL,
+  widget_logo_base64 LONGTEXT DEFAULT NULL,
+  is_active       TINYINT(1) DEFAULT 1,
+  created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_chatbots_user (user_id),
+  INDEX idx_chatbots_active (is_active)
+) ENGINE=InnoDB;
+
+-- ============================================
+-- CHATBOT_DOCUMENTS
+-- ============================================
+CREATE TABLE IF NOT EXISTS chatbot_documents (
+  id              CHAR(36) PRIMARY KEY,
+  chatbot_id      CHAR(36) NOT NULL,
+  file_name       VARCHAR(500) NOT NULL,
+  content         LONGTEXT NOT NULL,
+  created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (chatbot_id) REFERENCES chatbots(id) ON DELETE CASCADE,
+  INDEX idx_chatbot_documents_bot (chatbot_id)
+) ENGINE=InnoDB;
+
+-- ============================================
+-- CHATBOT_KNOWLEDGE_CHUNKS (RAG)
+-- ============================================
+CREATE TABLE IF NOT EXISTS chatbot_knowledge_chunks (
+  id              CHAR(36) PRIMARY KEY,
+  chatbot_id      CHAR(36) NOT NULL,
+  source_type     ENUM('website', 'document', 'catalog') NOT NULL,
+  source_label    VARCHAR(500) DEFAULT NULL,
+  chunk_index     INT NOT NULL DEFAULT 0,
+  content         TEXT NOT NULL,
+  embedding_json  LONGTEXT NOT NULL,
+  created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (chatbot_id) REFERENCES chatbots(id) ON DELETE CASCADE,
+  INDEX idx_knowledge_bot (chatbot_id)
+) ENGINE=InnoDB;
+
+-- ============================================
+-- CONVERSATIONS
+-- ============================================
+CREATE TABLE IF NOT EXISTS conversations (
+  id              CHAR(36) PRIMARY KEY,
+  chatbot_id      CHAR(36) NOT NULL,
+  customer_email  VARCHAR(255) DEFAULT NULL,
+  customer_name   VARCHAR(255) DEFAULT NULL,
+  status          ENUM('open', 'resolved', 'forwarded') DEFAULT 'open',
+  handoff_mode    VARCHAR(16) NOT NULL DEFAULT 'ai',
+  assigned_agent_id CHAR(36) NULL,
+  requests_human  TINYINT(1) NOT NULL DEFAULT 0,
+  created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (chatbot_id) REFERENCES chatbots(id) ON DELETE CASCADE,
+  INDEX idx_conversations_chatbot (chatbot_id),
+  INDEX idx_conversations_created (created_at),
+  INDEX idx_conversations_requests_human (requests_human)
+) ENGINE=InnoDB;
+
+-- ============================================
+-- CHAT_MESSAGES
+-- ============================================
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id              CHAR(36) PRIMARY KEY,
+  conversation_id CHAR(36) NOT NULL,
+  role            ENUM('user', 'assistant', 'agent') NOT NULL,
+  content         TEXT NOT NULL,
+  created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+  INDEX idx_messages_conversation (conversation_id)
+) ENGINE=InnoDB;
+
+-- ============================================
+-- FORWARDED_CONVERSATIONS
+-- ============================================
+CREATE TABLE IF NOT EXISTS forwarded_conversations (
+  id              CHAR(36) PRIMARY KEY,
+  user_id         CHAR(36) NOT NULL,
+  conversation_id CHAR(36) NOT NULL,
+  customer        VARCHAR(255) DEFAULT NULL,
+  customer_email  VARCHAR(255) DEFAULT NULL,
+  preview         TEXT DEFAULT NULL,
+  forwarded_as    ENUM('email', 'ticket') NOT NULL DEFAULT 'email',
+  ticket_ref      VARCHAR(100) DEFAULT NULL,
+  reply_text      TEXT DEFAULT NULL,
+  replied_at      TIMESTAMP NULL DEFAULT NULL,
+  reminder_6h_sent_at  TIMESTAMP NULL DEFAULT NULL,
+  reminder_12h_sent_at TIMESTAMP NULL DEFAULT NULL,
+  reminder_24h_sent_at TIMESTAMP NULL DEFAULT NULL,
+  created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_forwarded_user (user_id),
+  INDEX idx_forwarded_created (created_at),
+  INDEX idx_forwarded_conversation (conversation_id)
+) ENGINE=InnoDB;
+
+-- ============================================
+-- ACTIVITY_LOG
+-- ============================================
+CREATE TABLE IF NOT EXISTS activity_log (
+  id              CHAR(36) PRIMARY KEY,
+  user_id         CHAR(36) NOT NULL,
+  chatbot_id      CHAR(36) DEFAULT NULL,
+  type            ENUM('resolved', 'query', 'forwarded', 'system', 'warning') NOT NULL,
+  title           VARCHAR(255) NOT NULL,
+  detail          TEXT DEFAULT NULL,
+  created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (chatbot_id) REFERENCES chatbots(id) ON DELETE SET NULL,
+  INDEX idx_activity_user (user_id),
+  INDEX idx_activity_created (created_at)
+) ENGINE=InnoDB;
+
+-- ============================================
+-- TICKETS
+-- ============================================
+CREATE TABLE IF NOT EXISTS tickets (
+  id              CHAR(36) PRIMARY KEY,
+  user_id         CHAR(36) NOT NULL,
+  conversation_id CHAR(36) DEFAULT NULL,
+  ticket_ref      VARCHAR(50) NOT NULL,
+  type            ENUM('ai_resolved', 'forwarded_email', 'forwarded_human', 'database_check', 'escalated', 'other') NOT NULL,
+  customer        VARCHAR(255) DEFAULT NULL,
+  query_preview   TEXT DEFAULT NULL,
+  outcome         TEXT DEFAULT NULL,
+  status          ENUM('open', 'resolved', 'in_progress') DEFAULT 'open',
+  created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_ticket_ref (ticket_ref),
+  INDEX idx_tickets_user (user_id),
+  INDEX idx_tickets_conversation (conversation_id),
+  INDEX idx_tickets_type (type),
+  INDEX idx_tickets_created (created_at)
+) ENGINE=InnoDB;
+
+-- ============================================
+-- CONVERSATION_USAGE
+-- ============================================
+CREATE TABLE IF NOT EXISTS conversation_usage (
+  id              CHAR(36) PRIMARY KEY,
+  user_id         CHAR(36) NOT NULL,
+  period_month    CHAR(7) NOT NULL,
+  count_used      INT DEFAULT 0,
+  created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_usage_user_period (user_id, period_month),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_usage_user (user_id)
+) ENGINE=InnoDB;
+
+-- ============================================
+-- USER_EXTERNAL_ENDPOINTS
+-- ============================================
+CREATE TABLE IF NOT EXISTS user_external_endpoints (
+  id              CHAR(36) PRIMARY KEY,
+  user_id         CHAR(36) NOT NULL,
+  chatbot_id      CHAR(36) DEFAULT NULL,
+  name            VARCHAR(100) NOT NULL,
+  base_url        VARCHAR(500) NOT NULL,
+  auth_type       ENUM('none', 'bearer', 'api_key_header', 'basic') DEFAULT 'none',
+  auth_value      VARCHAR(500) DEFAULT NULL,
+  method_default  VARCHAR(10) DEFAULT 'GET',
+  is_active       TINYINT(1) DEFAULT 1,
+  created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_uep_user (user_id),
+  INDEX idx_uep_chatbot (chatbot_id)
+) ENGINE=InnoDB;

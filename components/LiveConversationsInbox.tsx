@@ -15,6 +15,7 @@ type ConversationRow = {
   status: string;
   handoffMode: "ai" | "human";
   assignedAgentId: string | null;
+  requestsHuman: boolean;
   isLive: boolean;
   lastMessageRole: string | null;
   messageCount: number;
@@ -91,6 +92,7 @@ export default function LiveConversationsInbox() {
       id: c.id,
       lastUserMessageId: c.lastUserMessageId,
       userMessageCount: c.userMessageCount,
+      requestsHuman: c.requestsHuman,
     })),
     Boolean(soundEnabled),
     Boolean(chatbotId && audioReady && soundEnabled !== null),
@@ -291,16 +293,28 @@ export default function LiveConversationsInbox() {
           ) : (
             <ul className="divide-y divide-slate-700/60">
               {conversations.map((conv) => (
-                <li key={conv.id}>
+                <li
+                  key={conv.id}
+                  className={conv.requestsHuman ? "border-l-2 border-amber-400" : ""}
+                >
                   <button
                     type="button"
                     onClick={() => setSelectedId(conv.id)}
                     className={`w-full px-4 py-3 text-left transition hover:bg-slate-800/60 ${
-                      selectedId === conv.id ? "bg-slate-800/80" : ""
+                      selectedId === conv.id
+                        ? "bg-slate-800/80"
+                        : conv.requestsHuman
+                        ? "bg-amber-900/10"
+                        : ""
                     }`}
                   >
                     <div className="flex items-center gap-2">
                       <span className="truncate font-medium text-slate-100">{conv.customer}</span>
+                      {conv.requestsHuman && (
+                        <span className="shrink-0 rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-300">
+                          Needs Agent
+                        </span>
+                      )}
                       {conv.isLive && (
                         <span className="shrink-0 rounded-full bg-red-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase text-red-400">
                           Live
