@@ -550,6 +550,9 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
         detail: question.length > 60 ? question.slice(0, 60) + "…" : question,
       });
     } catch (err: any) {
+      // Advance sync cursor so the poll doesn't re-add the user message from the server
+      // (server saved it with a different UUID than the optimistic client ID)
+      lastSyncSinceRef.current = new Date().toISOString();
       updateMessage(assistantId, {
         content:
           "Sorry, I couldn't generate a reply right now. Please try again in a moment.",

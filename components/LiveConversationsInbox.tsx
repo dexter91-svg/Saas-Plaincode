@@ -291,48 +291,77 @@ export default function LiveConversationsInbox() {
           ) : conversations.length === 0 ? (
             <p className="p-4 text-center text-sm text-slate-500">No conversations yet.</p>
           ) : (
-            <ul className="divide-y divide-slate-700/60">
+            <ul className="divide-y divide-slate-700/40">
               {[...conversations]
                 .sort((a, b) => (b.requestsHuman ? 1 : 0) - (a.requestsHuman ? 1 : 0))
-                .map((conv) => (
-                <li
-                  key={conv.id}
-                  className={conv.requestsHuman ? "border-l-2 border-amber-400" : ""}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setSelectedId(conv.id)}
-                    className={`w-full px-4 py-3 text-left transition hover:bg-slate-800/60 ${
-                      selectedId === conv.id
-                        ? "bg-slate-800/80"
-                        : conv.requestsHuman
-                        ? "bg-amber-900/10"
-                        : ""
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="truncate font-medium text-slate-100">{conv.customer}</span>
-                      {conv.requestsHuman && (
-                        <span className="shrink-0 rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-300">
-                          Needs Agent
-                        </span>
-                      )}
-                      {conv.isLive && (
-                        <span className="shrink-0 rounded-full bg-red-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase text-red-400">
-                          Live
-                        </span>
-                      )}
-                      {conv.handoffMode === "human" && (
-                        <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
-                          Agent
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-1 truncate text-xs text-slate-400">{conv.preview}</p>
-                    <p className="mt-1 text-[10px] text-slate-500">{formatRelative(conv.date)}</p>
-                  </button>
-                </li>
-              ))}
+                .map((conv) => {
+                  const accentColor = conv.requestsHuman
+                    ? "bg-amber-400"
+                    : conv.handoffMode === "human"
+                    ? "bg-emerald-500"
+                    : conv.isLive
+                    ? "bg-sky-500"
+                    : "bg-slate-600";
+                  const avatarColor = conv.requestsHuman
+                    ? "bg-amber-500/20 text-amber-300 ring-1 ring-amber-400/30"
+                    : conv.handoffMode === "human"
+                    ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30"
+                    : "bg-slate-700 text-slate-400";
+                  const isSelected = selectedId === conv.id;
+                  return (
+                    <li key={conv.id} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedId(conv.id)}
+                        className={`w-full pl-5 pr-4 py-3 text-left transition-colors ${
+                          isSelected
+                            ? conv.requestsHuman
+                              ? "bg-amber-950/40"
+                              : "bg-slate-700/50"
+                            : conv.requestsHuman
+                            ? "bg-amber-950/20 hover:bg-amber-950/30"
+                            : "hover:bg-slate-800/50"
+                        }`}
+                      >
+                        {/* Left accent bar — consistent on every row, color indicates state */}
+                        <span className={`absolute inset-y-0 left-0 w-[3px] rounded-r-full ${accentColor}`} />
+
+                        <div className="flex items-start gap-3">
+                          {/* Avatar */}
+                          <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarColor}`}>
+                            {(conv.customer?.[0] ?? "G").toUpperCase()}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="truncate text-sm font-semibold text-slate-100">
+                                {conv.customer}
+                              </span>
+                              {conv.requestsHuman && (
+                                <span className="shrink-0 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-300">
+                                  Needs Agent
+                                </span>
+                              )}
+                              {conv.isLive && (
+                                <span className="shrink-0 flex items-center gap-1 rounded bg-red-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-400">
+                                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-400" />
+                                  Live
+                                </span>
+                              )}
+                              {conv.handoffMode === "human" && (
+                                <span className="shrink-0 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-400">
+                                  You
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-1 truncate text-xs text-slate-400">{conv.preview}</p>
+                            <p className="mt-1 text-[10px] text-slate-500">{formatRelative(conv.date)}</p>
+                          </div>
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
             </ul>
           )}
         </div>
@@ -346,11 +375,35 @@ export default function LiveConversationsInbox() {
         ) : (
           <>
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-700/80 px-4 py-3">
-              <div className="min-w-0">
-                <p className="truncate font-semibold text-slate-100">{selected?.customer ?? "Conversation"}</p>
-                <p className="text-xs text-slate-500">
-                  {isLive ? "Active now" : "Idle"} · {handoffMode === "human" ? "You are chatting" : "AI assistant"}
-                </p>
+              <div className="min-w-0 flex items-start gap-3">
+                {/* Avatar matching the inbox */}
+                <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                  selected?.requestsHuman
+                    ? "bg-amber-500/20 text-amber-300 ring-1 ring-amber-400/30"
+                    : handoffMode === "human"
+                    ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30"
+                    : "bg-slate-700 text-slate-400"
+                }`}>
+                  {((selected?.customer ?? "G")[0]).toUpperCase()}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="truncate font-semibold text-slate-100">{selected?.customer ?? "Conversation"}</p>
+                    {selected?.requestsHuman && (
+                      <span className="rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-300">
+                        Needs Agent
+                      </span>
+                    )}
+                  </div>
+                  <p className="flex items-center gap-1.5 text-xs text-slate-500">
+                    <span className={`h-1.5 w-1.5 rounded-full ${isLive ? "bg-green-400 animate-pulse" : "bg-slate-600"}`} />
+                    {isLive ? "Active now" : "Idle"}
+                    <span className="text-slate-700">·</span>
+                    <span className={handoffMode === "human" ? "text-emerald-400" : "text-slate-500"}>
+                      {handoffMode === "human" ? "You are chatting" : "AI assistant"}
+                    </span>
+                  </p>
+                </div>
               </div>
               <div className="flex flex-wrap gap-2">
                 {!iAmAgent ? (
