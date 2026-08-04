@@ -225,6 +225,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  let conversationId: string | null = null;
+  let persistMessages = false;
+  let ticketRef: string | null = null;
+  let botUserId: string | null = null;
+  let userMsgId: string | null = null;
+  let supportJustForwarded = false;
+
   try {
     const body = await req.json().catch(() => ({}));
     const question = typeof body.question === "string" ? body.question.trim() : "";
@@ -244,13 +251,6 @@ export async function POST(req: NextRequest) {
       products?: { name?: string; price?: string; url?: string }[];
       uploadedDocsText?: string;
     } | null;
-
-    let conversationId: string | null = null;
-    let persistMessages = false;
-    let ticketRef: string | null = null;
-    let botUserId: string | null = null;
-    let userMsgId: string | null = null;
-    let supportJustForwarded = false;
 
     if (chatbotId) {
       const conn = await getDbConnection();
@@ -719,9 +719,14 @@ ${websiteContext}
     return new Response(stream, { headers });
   } catch (err) {
     console.error("Chat API error:", err);
+    const errHeaders: Record<string, string> = {
+      ...corsHeaders,
+      "Access-Control-Expose-Headers": "X-Conversation-Id",
+    };
+    if (conversationId) errHeaders["X-Conversation-Id"] = conversationId;
     return NextResponse.json(
       { error: "Unexpected error while generating reply." },
-      { status: 500, headers: corsHeaders }
+      { status: 500, headers: errHeaders }
     );
   }
 }

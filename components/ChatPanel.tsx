@@ -445,6 +445,15 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
       });
 
       if (!res.ok) {
+        // Capture conversation ID from error responses so subsequent messages stay in the same conversation
+        const errConvId = res.headers.get("X-Conversation-Id");
+        if (errConvId && !conversationIdRef.current) {
+          conversationIdRef.current = errConvId;
+          setActiveConversationId(errConvId);
+          try {
+            if (chatbotId) window.sessionStorage.setItem(`plainbot-conversation-id:${chatbotId}`, errConvId);
+          } catch { /* ignore */ }
+        }
         if (res.status === 402) {
           try {
             const body = await res.json();
@@ -814,7 +823,7 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
         <div ref={endRef} />
       </div>
 
-      {messages.length > 0 && handoffMode === "ai" && !humanRequestedViaButton && (
+      {handoffMode === "ai" && !humanRequestedViaButton && (
         <div className="flex justify-center px-4 pt-2 pb-1">
           <button
             type="button"
