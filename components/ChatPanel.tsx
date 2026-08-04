@@ -44,6 +44,7 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
   const [forwardMessage, setForwardMessage] = useState("");
   const [forwardSubmitting, setForwardSubmitting] = useState(false);
   const [forwardFormSubmitted, setForwardFormSubmitted] = useState(false);
+  const [humanRequestedViaButton, setHumanRequestedViaButton] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
   const greetingSentRef = useRef(false);
   const conversationIdRef = useRef<string | null>(null);
@@ -139,10 +140,16 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
     };
   }, [chatbotId, setMessages]);
 
+  const handleHumanRequest = () => {
+    setHumanRequestedViaButton(true);
+    handleSubmit(null, "I'd like to speak to a human agent");
+  };
+
   const clearChat = () => {
     lastSyncSinceRef.current = "";
     syncedMsgIdsRef.current = new Set();
     setHandoffMode("ai");
+    setHumanRequestedViaButton(false);
     try {
       const cid = conversationIdRef.current;
       if (cid && chatbotId) {
@@ -395,14 +402,14 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
     }
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e: FormEvent | null, overrideText?: string) => {
+    if (e) e.preventDefault();
     // Guards against a fast double-submit (double-click, double form-submit event) that
     // fires before React re-renders the "disabled" Send button — `loading` state alone
     // isn't checked here since the state update from the first call hasn't applied yet.
     if (submittingRef.current) return;
     setError(null);
-    const question = input.trim();
+    const question = overrideText ?? input.trim();
     if (!question) return;
     const unlimited = conversationRemaining >= UNLIMITED_CONVERSATIONS_DISPLAY;
     if (!unlimited && conversationRemaining <= 0) {
@@ -415,7 +422,7 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
     syncedMsgIdsRef.current.add(userId);
     const assistantId = addMessage({ role: "assistant", content: "" });
     syncedMsgIdsRef.current.add(assistantId);
-    setInput("");
+    if (!overrideText) setInput("");
     setLoading(true);
 
     // Show typing indicator immediately for better perceived performance
@@ -807,6 +814,21 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
         <div ref={endRef} />
       </div>
 
+      {messages.length > 0 && handoffMode === "ai" && !humanRequestedViaButton && (
+        <div className="flex justify-center px-4 pt-2 pb-1">
+          <button
+            type="button"
+            onClick={handleHumanRequest}
+            disabled={loading || disabled}
+            className="flex items-center gap-1.5 rounded-full border border-slate-600 bg-slate-800/70 px-3 py-1 text-xs text-slate-300 hover:border-amber-400/60 hover:bg-amber-950/30 hover:text-amber-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            Talk to a human
+          </button>
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="border-t border-slate-800 px-4 py-3">
         <div className="flex items-end gap-2">
           <textarea
