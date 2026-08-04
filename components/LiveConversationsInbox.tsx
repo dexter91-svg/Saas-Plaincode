@@ -68,6 +68,7 @@ export default function LiveConversationsInbox() {
   const [error, setError] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState<boolean | null>(null);
   const [audioReady, setAudioReady] = useState(false);
+  const [filter, setFilter] = useState<"all" | "agent" | "normal">("all");
   const lastSinceRef = useRef<string>("");
   const threadEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -284,6 +285,38 @@ export default function LiveConversationsInbox() {
           {!audioReady && (
             <p className="mt-1 text-[11px] text-amber-400/90">Click anywhere on the page to enable sound alerts.</p>
           )}
+          {/* Filter tabs */}
+          <div className="mt-3 flex gap-1">
+            {(["all", "agent", "normal"] as const).map((f) => {
+              const label = f === "all" ? "All" : f === "agent" ? "Needs Agent" : "Normal";
+              const count =
+                f === "all"
+                  ? conversations.length
+                  : f === "agent"
+                  ? conversations.filter((c) => c.requestsHuman).length
+                  : conversations.filter((c) => !c.requestsHuman).length;
+              const active = filter === f;
+              return (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setFilter(f)}
+                  className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                    active
+                      ? f === "agent"
+                        ? "bg-amber-400/20 text-amber-300"
+                        : "bg-slate-600 text-slate-100"
+                      : "text-slate-500 hover:text-slate-300"
+                  }`}
+                >
+                  {label}
+                  <span className={`rounded px-1 py-0.5 text-[10px] ${active ? "bg-white/10" : "bg-slate-700/60"}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto">
           {loadingList && conversations.length === 0 ? (
@@ -293,6 +326,9 @@ export default function LiveConversationsInbox() {
           ) : (
             <ul className="divide-y divide-slate-700/40">
               {[...conversations]
+                .filter((c) =>
+                  filter === "agent" ? c.requestsHuman : filter === "normal" ? !c.requestsHuman : true
+                )
                 .sort((a, b) => (b.requestsHuman ? 1 : 0) - (a.requestsHuman ? 1 : 0))
                 .map((conv) => {
                   const accentColor = conv.requestsHuman

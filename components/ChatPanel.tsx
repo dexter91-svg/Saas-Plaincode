@@ -50,6 +50,9 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
   const conversationIdRef = useRef<string | null>(null);
   const lastReplyShownRef = useRef<string | null>(null);
   const waitNoticeLockRef = useRef(false);
+  // Tracks optimistic user messages by content so the sync effect doesn't re-add
+  // the server-side copy (which has a different UUID from the client-generated one).
+  const pendingUserMsgsRef = useRef<Set<string>>(new Set());
   const [supportReplyIds, setSupportReplyIds] = useState<Set<string>>(new Set());
   const [supportReplyMeta, setSupportReplyMeta] = useState<Map<string, { repliedAt: string | null }>>(new Map());
   const [currentTicketRef, setCurrentTicketRef] = useState<string | null>(null);
@@ -159,6 +162,7 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
       /* */
     }
     waitNoticeLockRef.current = false;
+    pendingUserMsgsRef.current = new Set();
     clearMessages();
     if (chatbotId) {
       try {
@@ -325,6 +329,12 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
             const incoming = data.messages || [];
             incoming.forEach((m) => {
               if (syncedMsgIdsRef.current.has(m.id)) return;
+              // Suppress server echo of an optimistic user message we already displayed
+              if (m.role === "user" && pendingUserMsgsRef.current.has(m.content)) {
+                pendingUserMsgsRef.current.delete(m.content);
+                syncedMsgIdsRef.current.add(m.id);
+                return;
+              }
               syncedMsgIdsRef.current.add(m.id);
               const role =
                 m.role === "user" || m.role === "assistant" || m.role === "agent" ? m.role : "assistant";
@@ -420,6 +430,7 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
     submittingRef.current = true;
     const userId = addMessage({ role: "user", content: question });
     syncedMsgIdsRef.current.add(userId);
+    pendingUserMsgsRef.current.add(question);
     const assistantId = addMessage({ role: "assistant", content: "" });
     syncedMsgIdsRef.current.add(assistantId);
     if (!overrideText) setInput("");
@@ -524,6 +535,7 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
       // dedupes by the server's own message ids, never the client-generated ids used for our
       // optimistic messages above — doesn't treat this exchange as new and re-add a duplicate.
       lastSyncSinceRef.current = new Date().toISOString();
+      pendingUserMsgsRef.current.delete(question);
 
       // If AI requested forward to support (e.g. cancel order, refund), strip marker; backend already created ticket and sent email
       const forwardMarker = "[FORWARD_TO_SUPPORT]";
@@ -550,9 +562,8 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
         detail: question.length > 60 ? question.slice(0, 60) + "…" : question,
       });
     } catch (err: any) {
-      // Advance sync cursor so the poll doesn't re-add the user message from the server
-      // (server saved it with a different UUID than the optimistic client ID)
       lastSyncSinceRef.current = new Date().toISOString();
+      pendingUserMsgsRef.current.delete(question);
       updateMessage(assistantId, {
         content:
           "Sorry, I couldn't generate a reply right now. Please try again in a moment.",
