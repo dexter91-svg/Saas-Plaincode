@@ -345,14 +345,14 @@ const STATIC_INFO_PATHS = [
   "/pages/returns",
 ];
 
-const MAX_EXTRA_INFO_PAGES = 10;
+const MAX_EXTRA_INFO_PAGES = 6;
 const MAX_INFO_PAGE_TEXT = 6000;
 
 /** Sitemap (policy/about) + static paths, merged into homepage scrape content */
 async function appendInfoPolicyPages(
   pageUrl: string,
   homeContent: string,
-  fetchWithTimeout: (u: string) => Promise<Response>,
+  fetchWithTimeout: (u: string, timeoutMs?: number) => Promise<Response>,
   base: string
 ): Promise<string> {
   let homeKey = "";
@@ -400,29 +400,45 @@ async function appendInfoPolicyPages(
     if (k) toFetch.push(k);
   }
 
-  const parts: string[] = [];
-  let n = 0;
-  for (const target of toFetch) {
-    if (n >= MAX_EXTRA_INFO_PAGES) break;
-    try {
-      const res = await fetchWithTimeout(target);
-      if (!res.ok) continue;
-      const html = await res.text();
-      if (isCaptchaOrBotPage(html)) continue;
-      const $ = load(html);
-      const text = buildContentFromCheerio($) + extractContactFromPage($, base);
-      if (text.replace(/\s/g, "").length < 50) continue;
-      const chunk = text.length > MAX_INFO_PAGE_TEXT ? text.slice(0, MAX_INFO_PAGE_TEXT) + "\n[...]" : text;
-      parts.push(`\n\n--- Page: ${target} ---\n${chunk}`);
-      n++;
-    } catch {
-      // skip
-    }
-  }
-  return homeContent + parts.join("");
+  const targets = toFetch.slice(0, MAX_EXTRA_INFO_PAGES);
+  if (targets.length === 0) return homeContent;
+
+  const fetchPromise = (async () => {
+    const results = await Promise.allSettled(
+      targets.map(async (target) => {
+        try {
+          const res = await fetchWithTimeout(target, 4000);
+          if (!res.ok) return null;
+          const html = await res.text();
+          if (isCaptchaOrBotPage(html)) return null;
+          const $ = load(html);
+          const text = buildContentFromCheerio($) + extractContactFromPage($, base);
+          if (text.replace(/\s/g, "").length < 50) return null;
+          const chunk = text.length > MAX_INFO_PAGE_TEXT ? text.slice(0, MAX_INFO_PAGE_TEXT) + "\n[...]" : text;
+          return `\n\n--- Page: ${target} ---\n${chunk}`;
+        } catch {
+          return null;
+        }
+      })
+    );
+    const parts = results
+      .map((r) => (r.status === "fulfilled" ? r.value : null))
+      .filter((v): v is string => Boolean(v));
+    return homeContent + parts.join("");
+  })();
+
+  const budgetTimeout = new Promise<string>((resolve) => {
+    setTimeout(() => {
+      console.warn(`[Scraper Log] appendInfoPolicyPages budget timeout (10s) reached for ${pageUrl}. Returning partial content.`);
+      resolve(homeContent);
+    }, 10000);
+  });
+
+  return Promise.race([fetchPromise, budgetTimeout]);
 }
 
 export async function POST(req: NextRequest) {
+  const startTime = Date.now();
   const rl = checkRateLimit(req, "scrape", LIMITS.scrape);
   if (!rl.ok) {
     return NextResponse.json(
@@ -447,6 +463,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    console.log(`[Scraper Log] Starting scrape for ${url} (storeType: ${storeType || "auto"})`);
+
     const fetchOptions = {
       headers: {
         "User-Agent":
@@ -457,12 +475,15 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    const fetchWithTimeout = async (targetUrl: string): Promise<Response> => {
+    const fetchWithTimeout = async (targetUrl: string, timeoutMs: number = 12000): Promise<Response> => {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 20000);
-      const res = await fetch(targetUrl, { ...fetchOptions, signal: controller.signal });
-      clearTimeout(timeout);
-      return res;
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(targetUrl, { ...fetchOptions, signal: controller.signal });
+        return res;
+      } finally {
+        clearTimeout(timeout);
+      }
     };
 
     const baseUrlForContact = getBaseUrl(url);
@@ -626,6 +647,27 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
+    if (message.startsWith("Homepage ")) {
+      const statusCode = parseInt(message.replace("Homepage ", ""), 10);
+      if (statusCode === 403) {
+        return NextResponse.json(
+          { error: "Access denied (403). This site may block automated requests. Try a different store URL.", code: "ACCESS_DENIED" },
+          { status: 502 }
+        );
+      }
+      if (statusCode === 404) {
+        return NextResponse.json(
+          { error: "Page not found (404). Check the URL and try again." },
+          { status: 404 }
+        );
+      }
+      if (statusCode === 429) {
+        return NextResponse.json(
+          { error: "This site is rate-limiting requests (429). Try again in a minute.", code: "RATE_LIMIT" },
+          { status: 429 }
+        );
+      }
+    }
     if (message.includes("abort") || message.includes("fetch")) {
       return NextResponse.json(
         { error: "Request timed out or URL could not be reached. Please try again." },

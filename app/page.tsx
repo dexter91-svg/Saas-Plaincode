@@ -9,10 +9,8 @@ import StatsBar from "@/components/StatsBar";
 import AnimatedSection from "@/components/AnimatedSection";
 import FoundingOfferBlock from "@/components/FoundingOfferBlock";
 import TestimonialsSection from "@/components/TestimonialsSection";
-import { formatFoundingOfferClosingDate, getFoundingOfferEndMs } from "@/lib/founding-offer";
 
 export default function HomePage() {
-  const foundingCloseLabel = formatFoundingOfferClosingDate(getFoundingOfferEndMs());
   const faqItems: { q: string; a: string }[] = [
     {
       q: "How long does setup take?",
@@ -43,8 +41,8 @@ export default function HomePage() {
       a: "Yes. Paste your store URL and Plainbot reads every product page, your returns policy, shipping info, FAQs — everything publicly visible on your site. Takes under 2 minutes.",
     },
     {
-      q: "What is founding member pricing?",
-      a: `Early customers lock in a discounted rate for life — even when we raise prices. $79/month Growth tier stays at $79 forever for founding members. Closes on ${foundingCloseLabel}.`,
+      q: "Can I upgrade or downgrade anytime?",
+      a: "Yes. You can switch plans or cancel your subscription anytime directly from your dashboard in one click.",
     },
   ];
 
@@ -465,7 +463,7 @@ export default function HomePage() {
               Your store is answering customer questions right now. Is it doing it automatically?
             </h2>
             <p className="mt-4 text-lg text-slate-400">
-              Join 200+ Shopify and WooCommerce stores running support on autopilot.
+              Automate support for your Shopify, WooCommerce, or custom web store today.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
               <Link href="/signup?plan=free">
@@ -475,7 +473,7 @@ export default function HomePage() {
               </Link>
             </div>
             <p className="mt-5 text-sm text-slate-500">
-              Founding member pricing ends {foundingCloseLabel}. $79/month locked forever.
+              100 free conversations per month · No credit card required.
             </p>
           </AnimatedSection>
         </section>

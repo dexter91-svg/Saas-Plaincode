@@ -63,14 +63,14 @@ export default function HeroSection() {
       />
 
       <div
-        className="relative mx-auto w-full max-w-3xl text-center will-change-transform"
+        className="relative mx-auto w-full max-w-4xl text-center will-change-transform"
         style={scrollStyle}
       >
-        <h1 className="text-3xl font-bold tracking-tight text-slate-100 sm:text-4xl md:text-5xl lg:text-6xl text-balance">
-          <span className={`block ${entranceClass(reduceMotion, 60, "0.72s")}`}>
-            Your Shopify store is losing sales to unanswered questions.
-          </span>
-          <span className={`mt-2 block sm:mt-3 ${entranceClass(reduceMotion, 200, "0.7s")}`}>
+        <h1 className="text-2xl font-extrabold tracking-tight text-slate-100 sm:text-3xl md:text-4xl lg:text-[2.75rem] xl:text-5xl leading-tight sm:leading-tight md:leading-tight">
+          <span className={`inline-block ${entranceClass(reduceMotion, 60, "0.72s")}`}>
+            Your store is losing sales to unanswered questions.
+          </span>{" "}
+          <span className={`inline-block ${entranceClass(reduceMotion, 200, "0.7s")}`}>
             <span
               className={
                 reduceMotion
@@ -95,7 +95,7 @@ export default function HeroSection() {
           automatically.
         </p>
 
-        <div className={`mt-10 flex justify-center ${entranceClass(reduceMotion, 520, "0.58s")}`}>
+        <div className={`mt-10 flex flex-col items-center justify-center gap-4 ${entranceClass(reduceMotion, 520, "0.58s")}`}>
           <Link href="/signup?plan=free">
             <Button
               variant="primary"
@@ -104,6 +104,9 @@ export default function HeroSection() {
               Start free, no card needed
             </Button>
           </Link>
+          <p className="text-xs text-slate-500">
+            Shopify &amp; WooCommerce Ready · Auto-scrapes products &amp; policies · 100 free chats/month
+          </p>
         </div>
       </div>
     </section>

@@ -160,6 +160,9 @@ export default function CreateBotPage() {
 
     setLoading(true);
     setProgressPercent(10);
+    const controller = new AbortController();
+    const clientTimeout = setTimeout(() => controller.abort(), 30000);
+
     try {
       const res = await fetch("/api/scrape", {
         method: "POST",
@@ -168,7 +171,10 @@ export default function CreateBotPage() {
           url: trimmed,
           ...(storeType && { storeType }),
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(clientTimeout);
 
       setProgressPercent(95);
       setScanStep("done");
@@ -215,8 +221,14 @@ export default function CreateBotPage() {
       }
       router.push("/training-data");
     } catch (err: unknown) {
+      clearTimeout(clientTimeout);
       setScanStep("error");
-      setError(err instanceof Error ? err.message : "Something went wrong while scraping the website.");
+      if (err instanceof Error && err.name === "AbortError") {
+        setError("Website scan timed out after 30 seconds. You can click 'Continue without crawl' below to skip scanning and enter the app.");
+        setErrorCode("ACCESS_DENIED");
+      } else {
+        setError(err instanceof Error ? err.message : "Something went wrong while scraping the website.");
+      }
     } finally {
       setLoading(false);
     }

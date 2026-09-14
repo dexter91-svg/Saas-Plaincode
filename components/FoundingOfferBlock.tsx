@@ -40,59 +40,16 @@ function CountdownUnit({
 }
 
 export default function FoundingOfferBlock() {
-  const endMs = useMemo(() => getFoundingOfferEndMs(), []);
-  const closingLabel = useMemo(() => formatFoundingOfferClosingDate(endMs), [endMs]);
-  /** `null` until mounted — avoids SSR vs client `Date.now()` mismatch during hydration. */
-  const [rem, setRem] = useState<Remaining | null>(null);
-
-  useEffect(() => {
-    function tick() {
-      setRem(getRemaining(endMs));
-    }
-    tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, [endMs]);
-
   return (
-    <div className="mx-auto mt-10 max-w-2xl space-y-4 text-center">
+    <div className="mx-auto mt-10 max-w-2xl space-y-3 text-center">
       <p className="text-sm text-slate-300 sm:text-base">
-        <span className="font-semibold text-primary-400">Founding Member Pricing</span>
+        <span className="font-semibold text-primary-400">Growth Plan</span>
         {" — "}
-        <span className="font-semibold text-slate-100">$79/month</span> locked for life. Closes{" "}
-        <time dateTime={new Date(endMs).toISOString()}>{closingLabel}</time>.
+        <span className="font-semibold text-slate-100">$79/month</span> flat rate. Includes full store training and instant AI support.
       </p>
 
-      {rem === null ? (
-        <div
-          className="flex flex-wrap items-stretch justify-center gap-2 sm:gap-3"
-          role="status"
-          aria-busy="true"
-          aria-label="Loading countdown"
-        >
-          <CountdownUnit label="Days" placeholder />
-          <CountdownUnit label="Hours" placeholder />
-          <CountdownUnit label="Mins" placeholder />
-          <CountdownUnit label="Secs" placeholder />
-        </div>
-      ) : rem.total > 0 ? (
-        <div
-          className="flex flex-wrap items-stretch justify-center gap-2 sm:gap-3"
-          role="timer"
-          aria-live="polite"
-          aria-label="Time remaining until founding member pricing closes"
-        >
-          <CountdownUnit value={rem.d} label="Days" />
-          <CountdownUnit value={rem.h} label="Hours" />
-          <CountdownUnit value={rem.m} label="Mins" />
-          <CountdownUnit value={rem.s} label="Secs" />
-        </div>
-      ) : (
-        <p className="text-sm text-slate-500">Founding member enrollment has closed.</p>
-      )}
-
       <p className="text-sm text-slate-500">
-        Trusted by 20+ stores · 92% resolution rate · 2,670+ queries resolved this month
+        Shopify &amp; WooCommerce Ready · Auto-scrapes products &amp; policies · 100 free chats/month
       </p>
     </div>
   );

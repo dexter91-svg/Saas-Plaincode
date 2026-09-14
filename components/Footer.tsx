@@ -14,7 +14,7 @@ export default function Footer() {
               <span className="text-lg font-semibold">Plainbot</span>
             </Link>
             <p className="mt-3 max-w-xs text-sm text-slate-400">
-              AI customer support for ecommerce stores.
+              AI customer support for Shopify, WooCommerce &amp; custom stores.
             </p>
           </div>
           <nav

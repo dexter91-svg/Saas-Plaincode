@@ -599,7 +599,10 @@ export async function runScraper(
     title = meta.title;
     description = meta.description;
     content = meta.content;
-  } catch {
+  } catch (err) {
+    if (err instanceof Error && (err.message === "CAPTCHA_DETECTED" || err.message.startsWith("Homepage"))) {
+      throw err;
+    }
     title = new URL(baseUrl).hostname || "Store";
   }
 
