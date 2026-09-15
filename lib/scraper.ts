@@ -261,18 +261,18 @@ export async function fetchInfoAndPolicyUrlsFromSitemap(baseUrl: string): Promis
   ];
 
   let sitemapBody: string | null = null;
-  for (const candidate of sitemapCandidates) {
-    try {
-      const res = await fetchWithTimeout(candidate, {
-        headers: { Accept: "application/xml, text/xml, */*" },
-      });
-      if (res.ok) {
-        sitemapBody = await res.text();
-        break;
-      }
-    } catch {
-      // continue
-    }
+  try {
+    sitemapBody = await Promise.any(
+      sitemapCandidates.map(async (candidate) => {
+        const res = await fetchWithTimeout(candidate, {
+          headers: { Accept: "application/xml, text/xml, */*" },
+        });
+        if (!res.ok) throw new Error("not ok");
+        return res.text();
+      })
+    );
+  } catch {
+    // all candidates failed
   }
 
   if (!sitemapBody) return [];
@@ -342,19 +342,20 @@ export async function fetchProductUrlsFromSitemap(
   let sitemapBody: string | null = null;
   let sitemapUrl = "";
 
-  for (const candidate of sitemapCandidates) {
-    try {
-      const res = await fetchWithTimeout(candidate, {
-        headers: { Accept: "application/xml, text/xml, */*" },
-      });
-      if (res.ok) {
-        sitemapBody = await res.text();
-        sitemapUrl = candidate;
-        break;
-      }
-    } catch {
-      // continue
-    }
+  try {
+    const result = await Promise.any(
+      sitemapCandidates.map(async (candidate) => {
+        const res = await fetchWithTimeout(candidate, {
+          headers: { Accept: "application/xml, text/xml, */*" },
+        });
+        if (!res.ok) throw new Error("not ok");
+        return { body: await res.text(), url: candidate };
+      })
+    );
+    sitemapBody = result.body;
+    sitemapUrl = result.url;
+  } catch {
+    // all candidates failed
   }
 
   if (!sitemapBody) return [];
