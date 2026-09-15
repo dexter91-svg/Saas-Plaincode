@@ -10,22 +10,6 @@ import { formatAssistantMessageForDisplay } from "@/lib/format-assistant-message
 
 const SITEMAP_INITIAL = 4;
 const PRODUCTS_INITIAL = 6;
-const DEPLOY_MARKER = "deploy-marker-2026-05-03-vercel-pro";
-
-function statusClass(status: string) {
-  if (status === "Fully trained") return "bg-emerald-500/15 text-emerald-300";
-  if (status === "Syncing") return "bg-orange-500/15 text-orange-300";
-  return "bg-amber-500/15 text-amber-300";
-}
-
-const SITEMAP_ITEMS = [
-  { label: "Home (root)", status: "Fully trained" },
-  { label: "About us", status: "Fully trained" },
-  { label: "FAQ and Support", status: "Syncing" },
-  { label: "Policies / Privacy policy", status: "Fully trained" },
-  { label: "Policies / Refund policy", status: "Outdated" },
-  { label: "Contact", status: "Fully trained" },
-];
 
 export default function TrainingDataContent() {
   const router = useRouter();
@@ -73,17 +57,13 @@ export default function TrainingDataContent() {
           <h1 className="text-2xl font-bold text-slate-100">
             Website feeds and sitemap
           </h1>
-          <p className="mt-1 text-[11px] text-slate-500">
-            Deploy marker: <span className="font-medium text-slate-300">{DEPLOY_MARKER}</span>
-          </p>
           <p className="mt-2 text-sm text-slate-400">
-            Visual overview of pages crawled, product inventory, and an
-            AI-generated feed of your website content. All stored locally in
-            this demo (no external database yet).
+            Overview of your store&apos;s crawled content, product inventory, and the
+            text feed your AI assistant uses to answer customer questions.
           </p>
           {scrapedData?.url && (
             <p className="mt-1 text-xs text-slate-500">
-              Latest crawl source:{" "}
+              Store URL:{" "}
               <span className="text-slate-200">{scrapedData.url}</span>
             </p>
           )}
@@ -91,13 +71,15 @@ export default function TrainingDataContent() {
         <div className="text-right text-xs text-slate-400">
           <p>
             Data health:{" "}
-            <span className="font-semibold text-emerald-400">
-              {products ? "98.2%" : "Waiting for crawl"}
+            <span className={`font-semibold ${hasDocsOrCatalog ? "text-emerald-400" : "text-amber-400"}`}>
+              {hasDocsOrCatalog ? "Crawl complete" : "No crawl data"}
             </span>
           </p>
           <p className="mt-1">
             Last sync:{" "}
-            <span className="text-slate-200">Just now (session)</span>
+            <span className="text-slate-200">
+              {hasDocsOrCatalog ? "Just now" : "Never"}
+            </span>
           </p>
         </div>
       </header>
@@ -108,32 +90,47 @@ export default function TrainingDataContent() {
             Sitemap / knowledge map
           </h2>
           <p className="mt-1 text-xs text-slate-500">
-            High-level view of which key pages have been fully trained. Treat
-            this as a lightweight sitemap of your most important
-            customer-facing pages.
+            Pages discovered and read during the crawl. This is what your AI
+            assistant has been trained on.
           </p>
-          <div className="mt-5 space-y-3 text-xs">
-            {(sitemapExpanded ? SITEMAP_ITEMS : SITEMAP_ITEMS.slice(0, SITEMAP_INITIAL)).map((item) => (
-              <div
-                key={item.label}
-                className="flex items-center justify-between rounded-lg bg-slate-900/60 px-3 py-2"
-              >
-                <span className="text-slate-200">{item.label}</span>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusClass(item.status)}`}
-                >
-                  {item.status}
-                </span>
+          <div className="mt-5">
+            {hasDocsOrCatalog ? (
+              (() => {
+                const pages = [
+                  ...(scrapedData?.content?.includes("return") || scrapedData?.content?.includes("refund") ? [{ label: "Return / Refund policy" }] : []),
+                  ...(scrapedData?.content?.includes("shipping") ? [{ label: "Shipping policy" }] : []),
+                  ...(scrapedData?.content?.includes("faq") || scrapedData?.content?.includes("FAQ") ? [{ label: "FAQ / Help" }] : []),
+                  ...(scrapedData?.content?.includes("contact") ? [{ label: "Contact page" }] : []),
+                  ...(scrapedData?.content?.includes("about") ? [{ label: "About us" }] : []),
+                  { label: "Home (root)" },
+                ];
+                const visible = sitemapExpanded ? pages : pages.slice(0, SITEMAP_INITIAL);
+                return (
+                  <div className="space-y-3 text-xs">
+                    {visible.map((item) => (
+                      <div key={item.label} className="flex items-center justify-between rounded-lg bg-slate-900/60 px-3 py-2">
+                        <span className="text-slate-200">{item.label}</span>
+                        <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">Trained</span>
+                      </div>
+                    ))}
+                    {pages.length > SITEMAP_INITIAL && (
+                      <button type="button" onClick={() => setSitemapExpanded((e) => !e)}
+                        className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-800/60 px-3 py-2 text-xs font-medium text-primary-400 hover:bg-slate-800">
+                        {sitemapExpanded ? "View less" : `View more (${pages.length - SITEMAP_INITIAL} more)`}
+                      </button>
+                    )}
+                  </div>
+                );
+              })()
+            ) : (
+              <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 px-4 py-6 text-center">
+                <p className="text-xs text-slate-400">No pages crawled yet.</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {scrapeFailed
+                    ? "The crawl was skipped or blocked. Upload PDFs above to train your assistant instead."
+                    : "Analyse a store URL from the previous step to populate this."}
+                </p>
               </div>
-            ))}
-            {SITEMAP_ITEMS.length > SITEMAP_INITIAL && (
-              <button
-                type="button"
-                onClick={() => setSitemapExpanded((e) => !e)}
-                className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-800/60 px-3 py-2 text-xs font-medium text-primary-400 hover:bg-slate-800"
-              >
-                {sitemapExpanded ? "View less" : `View more (${SITEMAP_ITEMS.length - SITEMAP_INITIAL} more)`}
-              </button>
             )}
           </div>
         </Card>
@@ -229,7 +226,9 @@ export default function TrainingDataContent() {
 
       <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
         <p className="text-xs text-slate-500">
-          Products are detected in real time from your latest website crawl.
+          {hasDocsOrCatalog
+            ? "Products and content are sourced from your latest website crawl."
+            : "No crawl data yet — upload PDFs or add products manually to train your assistant."}
         </p>
         <div className="flex flex-wrap gap-3">
           <Button

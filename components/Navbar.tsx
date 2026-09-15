@@ -26,6 +26,7 @@ const APP_ROUTES = [
   "/onboarding",
   "/settings",
   "/admin",
+  "/logs",
 ];
 
 function MenuIcon({ className }: { className?: string }) {

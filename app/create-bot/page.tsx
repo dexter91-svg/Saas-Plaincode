@@ -14,15 +14,30 @@ type ErrorCode = "RATE_LIMIT" | "ACCESS_DENIED";
 
 type ScanStep = "idle" | "fetching" | "products" | "policies" | "done" | "error";
 
-const PROGRESS_STEPS: { key: ScanStep; label: string }[] = [
-  { key: "fetching", label: "Fetching website..." },
-  { key: "products", label: "Products found" },
-  { key: "policies", label: "Extracting policies & help content..." },
+const PROGRESS_STEPS: { key: ScanStep; label: string; detail: string; done: string }[] = [
+  {
+    key: "fetching",
+    label: "Finding your sitemap",
+    detail: "Probing common sitemap locations on your store to map all available pages...",
+    done: "Sitemap located",
+  },
+  {
+    key: "products",
+    label: "Extracting product catalogue",
+    detail: "Reading product names, prices, descriptions, and variants from your listings...",
+    done: "Products extracted",
+  },
+  {
+    key: "policies",
+    label: "Reading policies & FAQs",
+    detail: "Scanning return policy, shipping info, FAQ pages, and contact details...",
+    done: "Policy pages scanned",
+  },
 ];
 
 export default function CreateBotPage() {
   const router = useRouter();
-  const { setScrapedData, scrapedData, addActivity, setChatbotId, personality } = useBot();
+  const { setScrapedData, scrapedData, addActivity, setChatbotId, chatbotId, personality } = useBot();
   const [storeType, setStoreType] = useState<string | null>(null);
   const [storeTypeLoading, setStoreTypeLoading] = useState(true);
   const [atStoreLimit, setAtStoreLimit] = useState(false);
@@ -71,6 +86,7 @@ export default function CreateBotPage() {
   const urlInputRef = useRef<HTMLInputElement>(null);
   const [scanStep, setScanStep] = useState<ScanStep>("idle");
   const [progressPercent, setProgressPercent] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const siteLabelFromUrl = (raw: string): string => {
     const s = (raw || "").trim();
@@ -105,18 +121,25 @@ export default function CreateBotPage() {
         title: "Website connected (limited access)",
         detail: `We couldn't crawl ${label} right now. Upload PDFs or add products to improve answers.`,
       });
-      const botRes = await fetch("/api/chatbots", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          websiteUrl: trimmed,
-          websiteTitle: payload.title,
-          websiteDescription: payload.description,
-          websiteContent: payload.content,
-          products: payload.products,
-          personality: personality || "Friendly",
-        }),
-      });
+      const botPayload = {
+        websiteUrl: trimmed,
+        websiteTitle: payload.title,
+        websiteDescription: payload.description,
+        websiteContent: payload.content,
+        products: payload.products,
+        personality: personality || "Friendly",
+      };
+      const botRes = chatbotId
+        ? await fetch(`/api/chatbots/${chatbotId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(botPayload),
+          })
+        : await fetch("/api/chatbots", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(botPayload),
+          });
       if (botRes.ok) {
         const botData = await botRes.json();
         if (botData.chatbot?.id) setChatbotId(botData.chatbot.id);
@@ -131,7 +154,11 @@ export default function CreateBotPage() {
 
   // Simulate progress while request is in flight
   useEffect(() => {
-    if (!loading) return;
+    if (!loading) {
+      setElapsedSeconds(0);
+      return;
+    }
+    setElapsedSeconds(0);
     setScanStep("fetching");
     setProgressPercent(10);
     const t1 = setTimeout(() => {
@@ -142,9 +169,13 @@ export default function CreateBotPage() {
       setScanStep("policies");
       setProgressPercent(75);
     }, 1200);
+    const timer = setInterval(() => {
+      setElapsedSeconds((s) => s + 1);
+    }, 1000);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
+      clearInterval(timer);
     };
   }, [loading]);
 
@@ -197,24 +228,45 @@ export default function CreateBotPage() {
         content: data.content || "",
         products: Array.isArray(data.products) ? data.products : [],
       };
+
+      const hasContent = payload.content.trim().length > 0 || payload.products.length > 0;
+      if (!hasContent) {
+        // Site returned HTTP 200 but no extractable content — almost certainly JS-rendered.
+        setScanStep("error");
+        setError(
+          "We reached this site but couldn't extract any content — it appears to be JavaScript-rendered. " +
+          "You can continue and upload a product list or PDF instead, or try a different URL."
+        );
+        setErrorCode("ACCESS_DENIED");
+        setLoading(false);
+        return;
+      }
+
       setScrapedData(payload);
       addActivity({
         type: "system",
         title: "Website connected",
         detail: `AI updated with content from ${trimmed.replace(/^https?:\/\//, "").split("/")[0]}`,
       });
-      const botRes = await fetch("/api/chatbots", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          websiteUrl: trimmed,
-          websiteTitle: payload.title,
-          websiteDescription: payload.description,
-          websiteContent: payload.content,
-          products: payload.products || [],
-          personality: personality || "Friendly",
-        }),
-      });
+      const botPayload2 = {
+        websiteUrl: trimmed,
+        websiteTitle: payload.title,
+        websiteDescription: payload.description,
+        websiteContent: payload.content,
+        products: payload.products || [],
+        personality: personality || "Friendly",
+      };
+      const botRes = chatbotId
+        ? await fetch(`/api/chatbots/${chatbotId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(botPayload2),
+          })
+        : await fetch("/api/chatbots", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(botPayload2),
+          });
       if (botRes.ok) {
         const botData = await botRes.json();
         if (botData.chatbot?.id) setChatbotId(botData.chatbot.id);
@@ -368,36 +420,82 @@ export default function CreateBotPage() {
           </form>
         </Card>
 
-        {!isShopify && loading && (
-          <Card className="mt-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-500/20 text-primary-400">
-                <svg className="h-5 w-5 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </span>
-              <div>
-                <h3 className="text-sm font-semibold text-slate-200">Scanning your content</h3>
-                <p className="text-xs text-slate-400">Fetching products, policies, and FAQs...</p>
+        {loading && (
+          <Card className="mt-6 space-y-5">
+            {/* Header */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-500/20 text-primary-400">
+                  <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                  </svg>
+                </span>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-200">Analysing your store</h3>
+                  <p className="text-xs text-slate-500">This usually takes 10–30 seconds</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500">{progressPercent}%</span>
+                <span className="rounded-md bg-slate-800 px-2 py-1 text-xs font-mono text-slate-400">
+                  {elapsedSeconds}s
+                </span>
               </div>
             </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
+
+            {/* Progress bar */}
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
               <div
-                className="h-full rounded-full bg-primary-500 transition-all duration-500"
+                className="h-full rounded-full bg-primary-500 transition-all duration-700 ease-out"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
-            <ul className="space-y-2 text-sm text-slate-400">
-              {PROGRESS_STEPS.map(({ key, label }) => (
-                <li key={key} className="flex items-center gap-2">
-                  {scanStep === key && !(key === "products" && scanStep === "done") ? (
-                    <span className="inline-flex h-2 w-2 shrink-0 rounded-full bg-primary-400 animate-pulse" />
-                  ) : (key === "fetching" && scanStep !== "idle") || (key === "products" && (scanStep === "products" || scanStep === "policies" || scanStep === "done")) || (key === "policies" && scanStep === "policies") || scanStep === "done" ? (
-                    <span className="text-emerald-400">✔</span>
-                  ) : null}
-                  <span className={scanStep === key ? "text-slate-200" : ""}>{label}</span>
-                </li>
-              ))}
+
+            {/* Steps */}
+            <ul className="space-y-2">
+              {PROGRESS_STEPS.map(({ key, label, detail, done }) => {
+                const isDone =
+                  (key === "fetching" && scanStep !== "idle") ||
+                  (key === "products" && (scanStep === "products" || scanStep === "policies" || scanStep === "done")) ||
+                  (key === "policies" && scanStep === "policies") ||
+                  scanStep === "done";
+                const isActive = scanStep === key && scanStep !== "done";
+                const isPending = !isDone && !isActive;
+
+                if (isActive) {
+                  return (
+                    <li key={key} className="rounded-lg border border-primary-500/25 bg-primary-500/8 px-3.5 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <span className="inline-flex h-2 w-2 shrink-0 rounded-full bg-primary-400 animate-pulse" />
+                        <span className="text-sm font-semibold text-primary-300">{label}</span>
+                      </div>
+                      <p className="mt-1.5 pl-4.5 text-xs leading-relaxed text-slate-400">{detail}</p>
+                    </li>
+                  );
+                }
+
+                if (isDone) {
+                  return (
+                    <li key={key} className="flex items-center justify-between gap-2 rounded-lg bg-emerald-500/5 px-3.5 py-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <svg className="h-4 w-4 shrink-0 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-sm text-slate-300">{label}</span>
+                      </div>
+                      <span className="shrink-0 text-xs text-emerald-600">{done}</span>
+                    </li>
+                  );
+                }
+
+                return (
+                  <li key={key} className={`flex items-center gap-2.5 rounded-lg px-3.5 py-2.5 ${isPending ? "opacity-40" : ""}`}>
+                    <span className="inline-flex h-2 w-2 shrink-0 rounded-full bg-slate-600" />
+                    <span className="text-sm text-slate-500">{label}</span>
+                  </li>
+                );
+              })}
             </ul>
           </Card>
         )}

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { load } from "cheerio";
 import {
   runScraper,
@@ -9,6 +9,31 @@ import {
   type StoreType,
 } from "@/lib/scraper";
 import { checkRateLimit, LIMITS } from "@/lib/rate-limit";
+import { getAuthFromCookie } from "@/lib/auth";
+import { getDbConnection } from "@/lib/db";
+
+async function logCrawl(opts: {
+  userId: string | null;
+  url: string;
+  status: "success" | "failed" | "timeout" | "captcha";
+  storeType: string | null;
+  productsFound: number;
+  durationMs: number;
+  errorMessage?: string;
+}): Promise<void> {
+  try {
+    const conn = await getDbConnection();
+    const id = crypto.randomUUID();
+    await conn.execute(
+      `INSERT INTO crawl_logs (id, user_id, url, status, store_type, products_found, duration_ms, error_message)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, opts.userId, opts.url, opts.status, opts.storeType, opts.productsFound, opts.durationMs, opts.errorMessage ?? null]
+    );
+    await conn.end();
+  } catch (e) {
+    console.warn("[Crawl Log] Failed to write crawl log:", e);
+  }
+}
 
 export const runtime = "nodejs";
 export const maxDuration = 90; // feed + sitemaps + policy/info pages
@@ -439,6 +464,9 @@ async function appendInfoPolicyPages(
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
+  const auth = await getAuthFromCookie().catch(() => null);
+  const userId = auth?.userId ?? null;
+
   const rl = checkRateLimit(req, "scrape", LIMITS.scrape);
   if (!rl.ok) {
     return NextResponse.json(
@@ -488,9 +516,11 @@ export async function POST(req: NextRequest) {
 
     const baseUrlForContact = getBaseUrl(url);
 
+    const JS_PLACEHOLDER_TITLES = /^(loading\.{0,3}|please wait|just a moment|checking your browser|one moment|redirecting\.{0,3}|404|error)$/i;
     const loadCheerio = (html: string) => {
       const $ = load(html);
-      const title = $("title").first().text().trim() ?? "";
+      const rawTitle = $("title").first().text().trim() ?? "";
+      const title = JS_PLACEHOLDER_TITLES.test(rawTitle) ? "" : rawTitle;
       let description = $('meta[name="description"]').attr("content")?.trim() ?? "";
       if (!description) description = $('meta[property="og:description"]').attr("content")?.trim() ?? "";
       const content = buildContentFromCheerio($) + extractContactFromPage($, baseUrlForContact);
@@ -519,6 +549,7 @@ export async function POST(req: NextRequest) {
           /* keep empty */
         }
       }
+      logCrawl({ userId, url, status: "success", storeType, productsFound: products.length, durationMs: Date.now() - startTime });
       return NextResponse.json({
         title: result.title,
         description: result.description,
@@ -538,6 +569,7 @@ export async function POST(req: NextRequest) {
           console.warn("appendInfoPolicyPages (store type):", e);
         }
         const products = result.products.map((p) => ({ name: p.name, price: p.price, url: p.url }));
+        logCrawl({ userId, url, status: "success", storeType, productsFound: products.length, durationMs: Date.now() - startTime });
         return NextResponse.json({
           title: result.title,
           description: result.description,
@@ -552,17 +584,14 @@ export async function POST(req: NextRequest) {
             detectedPlatform === "shopify"
               ? " This looks like a Shopify store — install our app from the Shopify App Store to connect."
               : detectedPlatform === "woocommerce"
-                ? " This looks like WooCommerce — we can connect via the store’s product feed or snippet."
+                ? " This looks like WooCommerce — we can connect via the store's product feed or snippet."
                 : "";
+          const errMsg = "This site showed a security check (CAPTCHA or bot detection). We can't read the page automatically." +
+            hint +
+            (detectedPlatform === "custom" ? " Try a Shopify or WooCommerce store, or a different URL." : "");
+          logCrawl({ userId, url, status: "captcha", storeType, productsFound: 0, durationMs: Date.now() - startTime, errorMessage: errMsg });
           return NextResponse.json(
-            {
-              error:
-                "This site showed a security check (CAPTCHA or bot detection). We can't read the page automatically." +
-                hint +
-                (detectedPlatform === "custom" ? " Try a Shopify or WooCommerce store, or a different URL." : ""),
-              code: "ACCESS_DENIED",
-              detectedPlatform,
-            },
+            { error: errMsg, code: "ACCESS_DENIED", detectedPlatform },
             { status: 403 }
           );
         }
@@ -597,6 +626,8 @@ export async function POST(req: NextRequest) {
         if (detectedPlatform === "shopify") errorMessage += " This looks like a Shopify store — install our app from the Shopify App Store to connect.";
         else if (detectedPlatform === "woocommerce") errorMessage += " This looks like WooCommerce — we can connect via the store's product feed or snippet.";
       }
+      const logStatus = status === 429 ? "failed" : status === 403 ? "captcha" : "failed";
+      logCrawl({ userId, url, status: logStatus, storeType, productsFound: 0, durationMs: Date.now() - startTime, errorMessage });
       const httpStatus = status === 429 ? 429 : status >= 500 ? 502 : 502;
       return NextResponse.json(
         { error: errorMessage, ...(code && { code }), ...(detectedPlatform && { detectedPlatform }) },
@@ -613,19 +644,17 @@ export async function POST(req: NextRequest) {
           : detectedPlatform === "woocommerce"
             ? " This looks like WooCommerce — we can connect via the store's product feed or snippet."
             : " Try a Shopify or WooCommerce store, or a different URL.";
+      const errMsg = "This site showed a security check (CAPTCHA or bot detection). We can't read the page automatically." + hint;
+      logCrawl({ userId, url, status: "captcha", storeType, productsFound: 0, durationMs: Date.now() - startTime, errorMessage: errMsg });
       return NextResponse.json(
-        {
-          error:
-            "This site showed a security check (CAPTCHA or bot detection). We can't read the page automatically." + hint,
-          code: "ACCESS_DENIED",
-          detectedPlatform,
-        },
+        { error: errMsg, code: "ACCESS_DENIED", detectedPlatform },
         { status: 403 }
       );
     }
     const $ = load(html);
 
-    const title = $("title").first().text().trim() ?? "";
+    const rawTitle2 = $("title").first().text().trim() ?? "";
+    const title = JS_PLACEHOLDER_TITLES.test(rawTitle2) ? "" : rawTitle2;
     let description = $('meta[name="description"]').attr("content")?.trim() ?? "";
     if (!description) {
       description = $('meta[property="og:description"]').attr("content")?.trim() ?? "";
@@ -639,6 +668,13 @@ export async function POST(req: NextRequest) {
       console.warn("appendInfoPolicyPages (fallback):", e);
     }
 
+    const isEmpty = finalContent.trim().length === 0 && products.length === 0;
+    if (isEmpty) {
+      const errMsg = "Site returned HTTP 200 but no extractable content — likely JavaScript-rendered.";
+      logCrawl({ userId, url, status: "captcha", storeType, productsFound: 0, durationMs: Date.now() - startTime, errorMessage: errMsg });
+    } else {
+      logCrawl({ userId, url, status: "success", storeType, productsFound: products.length, durationMs: Date.now() - startTime });
+    }
     return NextResponse.json({
       title,
       description,
@@ -650,18 +686,21 @@ export async function POST(req: NextRequest) {
     if (message.startsWith("Homepage ")) {
       const statusCode = parseInt(message.replace("Homepage ", ""), 10);
       if (statusCode === 403) {
+        logCrawl({ userId: userId ?? null, url: "", status: "failed", storeType: null, productsFound: 0, durationMs: Date.now() - startTime, errorMessage: message });
         return NextResponse.json(
           { error: "Access denied (403). This site may block automated requests. Try a different store URL.", code: "ACCESS_DENIED" },
           { status: 502 }
         );
       }
       if (statusCode === 404) {
+        logCrawl({ userId: userId ?? null, url: "", status: "failed", storeType: null, productsFound: 0, durationMs: Date.now() - startTime, errorMessage: message });
         return NextResponse.json(
           { error: "Page not found (404). Check the URL and try again." },
           { status: 404 }
         );
       }
       if (statusCode === 429) {
+        logCrawl({ userId: userId ?? null, url: "", status: "failed", storeType: null, productsFound: 0, durationMs: Date.now() - startTime, errorMessage: message });
         return NextResponse.json(
           { error: "This site is rate-limiting requests (429). Try again in a minute.", code: "RATE_LIMIT" },
           { status: 429 }
@@ -669,12 +708,14 @@ export async function POST(req: NextRequest) {
       }
     }
     if (message.includes("abort") || message.includes("fetch")) {
+      logCrawl({ userId: userId ?? null, url: "", status: "timeout", storeType: null, productsFound: 0, durationMs: Date.now() - startTime, errorMessage: message });
       return NextResponse.json(
         { error: "Request timed out or URL could not be reached. Please try again." },
         { status: 504 }
       );
     }
     console.error("Scrape API error:", err);
+    logCrawl({ userId: userId ?? null, url: "", status: "failed", storeType: null, productsFound: 0, durationMs: Date.now() - startTime, errorMessage: message });
     return NextResponse.json(
       { error: "Unexpected error while scraping website." },
       { status: 500 }
