@@ -128,13 +128,15 @@ async function fetchWithTimeout(
 ): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  const res = await fetch(url, {
-    ...options,
-    headers: { ...DEFAULT_FETCH_OPTIONS.headers, ...options.headers },
-    signal: controller.signal,
-  });
-  clearTimeout(timeout);
-  return res;
+  try {
+    return await fetch(url, {
+      ...options,
+      headers: { ...DEFAULT_FETCH_OPTIONS.headers, ...options.headers },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 // ---- Shopify ----

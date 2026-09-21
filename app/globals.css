@@ -36,3 +36,144 @@ body {
   opacity: 1;
   transform: translateY(0);
 }
+
+/* Landing: smooth anchor scrolling, offset for the sticky landing navbar */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 72px;
+}
+
+/*
+ * Landing page light theme (interim, until each section is redesigned per design.md).
+ * Scoped to .landing-light so the dashboard and other dark pages are unaffected.
+ * Remaps the dark utility classes used by the landing components to light equivalents.
+ */
+.landing-light {
+  background: #ffffff;
+  color: #0f172a;
+}
+/* backgrounds */
+.landing-light .bg-black { background-color: #ffffff; }
+.landing-light .bg-slate-950\/40,
+.landing-light .bg-slate-900\/30,
+.landing-light .bg-slate-900\/50 { background-color: #f8fafc; }
+.landing-light .bg-slate-900\/80 { background-color: #ffffff; }
+.landing-light .bg-slate-800,
+.landing-light .bg-slate-800\/60,
+.landing-light .bg-slate-800\/70,
+.landing-light .bg-slate-800\/80 { background-color: #f1f5f9; }
+.landing-light .bg-slate-700 { background-color: #e2e8f0; }
+.landing-light .hover\:bg-slate-800:hover { background-color: #f1f5f9; }
+.landing-light .hover\:bg-slate-600:hover { background-color: #cbd5e1; }
+/* Card component (bg-slate-800/80) renders as a white card with a soft shadow */
+.landing-light .rounded-xl.bg-slate-800\/80,
+.landing-light .rounded-xl.bg-slate-900\/80 { background-color: #ffffff; }
+/* gradients */
+.landing-light .from-black {
+  --tw-gradient-from: #ffffff var(--tw-gradient-from-position);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+.landing-light .to-slate-950 { --tw-gradient-to: #f8fafc var(--tw-gradient-to-position); }
+.landing-light .from-primary-400 { --tw-gradient-from: #ea580c var(--tw-gradient-from-position); }
+.landing-light .via-primary-300 {
+  --tw-gradient-stops: var(--tw-gradient-from), #fb923c var(--tw-gradient-via-position), var(--tw-gradient-to);
+}
+/* text */
+.landing-light .text-slate-100 { color: #0f172a; }
+.landing-light .text-slate-200 { color: #1e293b; }
+.landing-light .text-slate-300 { color: #334155; }
+.landing-light .text-slate-400 { color: #475569; }
+.landing-light .text-slate-500,
+.landing-light .text-slate-600 { color: #64748b; }
+.landing-light .text-primary-400 { color: #ea580c; }
+.landing-light .hover\:text-primary-400:hover,
+.landing-light .hover\:text-primary-300:hover { color: #c2410c; }
+.landing-light .hover\:text-slate-100:hover { color: #0f172a; }
+.landing-light .text-emerald-400 { color: #059669; }
+.landing-light .text-sky-400 { color: #0284c7; }
+.landing-light .text-amber-400 { color: #d97706; }
+.landing-light .text-red-400 { color: #dc2626; }
+/* borders and dividers */
+.landing-light .border-slate-800,
+.landing-light .border-slate-700,
+.landing-light .border-slate-700\/80 { border-color: #e2e8f0; }
+.landing-light .border-slate-600\/80,
+.landing-light .hover\:border-slate-600\/80:hover { border-color: #cbd5e1; }
+.landing-light .sm\:divide-slate-700\/60 > :not([hidden]) ~ :not([hidden]) { border-color: #e2e8f0; }
+/* shadows and focus rings */
+.landing-light .shadow-soft { box-shadow: 0 4px 14px 0 rgba(15, 23, 42, 0.08); }
+.landing-light .shadow-soft-lg,
+.landing-light .hover\:shadow-soft-lg:hover { box-shadow: 0 10px 40px -10px rgba(15, 23, 42, 0.15); }
+.landing-light .focus\:ring-offset-black:focus { --tw-ring-offset-color: #ffffff; }
+
+/* Demo section: countdown bar to the next auto-selected tab */
+@keyframes plnb-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* Demo carousel: slide-in direction (skipped for reduced motion) */
+@keyframes plnb-slide-in-next {
+  from { opacity: 0; transform: translateX(36px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes plnb-slide-in-prev {
+  from { opacity: 0; transform: translateX(-36px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .plnb-slide-next { animation: plnb-slide-in-next 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .plnb-slide-prev { animation: plnb-slide-in-prev 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+}
+
+/* Demo carousel: active segment fills left to right. Animating background-size (0% = nothing drawn)
+   avoids the sliver a clipped, rounded shape leaves at the start; the parent's rounded corners shape the ends. */
+@keyframes plnb-fill {
+  from { background-size: 0% 100%; }
+  to { background-size: 100% 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [style*="plnb-fill"] { animation: none !important; background-size: 100% 100% !important; }
+}
+
+/* Demo carousel loop restart: segments clear left to right, then the highlight fades in at the start */
+@keyframes plnb-wipe {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+@keyframes plnb-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [style*="plnb-wipe"], [style*="plnb-fade-in"] { animation: none !important; }
+}
+
+/* Demo carousel: selecting a slide fills the segments on the way (forward) or empties them (back), starting
+   from --from-w so the segment that was active continues from its countdown progress. */
+@keyframes plnb-grow-from {
+  from { width: var(--from-w, 0%); }
+  to { width: 100%; }
+}
+@keyframes plnb-shrink-from {
+  from { width: var(--from-w, 100%); }
+  to { width: 0%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [style*="plnb-grow-from"], [style*="plnb-shrink-from"] { animation: none !important; }
+}
+
+/* Demo setup slide: URL "typing" in and the read-through progress bar */
+@keyframes plnb-type {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [style*="plnb-type"], [style*="plnb-progress"] { animation: none !important; }
+}
+
+/* Demo: pausing freezes every running animation inside the section (timers are paused in JS) */
+.plnb-paused,
+.plnb-paused * {
+  animation-play-state: paused !important;
+}

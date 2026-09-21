@@ -1,11 +1,29 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Manrope } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+  display: "swap",
+});
+
+// Instrument Serif, self-hosted from the font files bundled in the landing design prototype.
+const instrumentSerif = localFont({
+  src: [
+    { path: "./fonts/InstrumentSerif-Regular.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/InstrumentSerif-Italic.woff2", weight: "400", style: "italic" },
+  ],
+  variable: "--font-instrument-serif",
+  display: "swap",
+});
+
+const manrope = Manrope({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-manrope",
   display: "swap",
 });
 
@@ -32,7 +50,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={`${inter.variable} ${instrumentSerif.variable} ${manrope.variable}`}>
       <body className="min-h-[100dvh] antialiased bg-black text-slate-100 font-sans">
         <Providers>{children}</Providers>
       </body>
