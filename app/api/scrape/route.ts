@@ -466,6 +466,8 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now();
   const auth = await getAuthFromCookie().catch(() => null);
   const userId = auth?.userId ?? null;
+  let url = "";
+  let storeType: StoreType | null = null;
 
   const rl = checkRateLimit(req, "scrape", LIMITS.scrape);
   if (!rl.ok) {
@@ -476,8 +478,8 @@ export async function POST(req: NextRequest) {
   }
   try {
     const body = await req.json().catch(() => ({}));
-    const url = typeof body.url === "string" ? body.url.trim() : "";
-    const storeType = typeof body.storeType === "string" && ["shopify", "woocommerce", "custom"].includes(body.storeType)
+    url = typeof body.url === "string" ? body.url.trim() : "";
+    storeType = typeof body.storeType === "string" && ["shopify", "woocommerce", "custom"].includes(body.storeType)
       ? (body.storeType as StoreType)
       : null;
 
@@ -671,7 +673,7 @@ export async function POST(req: NextRequest) {
     const isEmpty = finalContent.trim().length === 0 && products.length === 0;
     if (isEmpty) {
       const errMsg = "Site returned HTTP 200 but no extractable content — likely JavaScript-rendered.";
-      logCrawl({ userId, url, status: "captcha", storeType, productsFound: 0, durationMs: Date.now() - startTime, errorMessage: errMsg });
+      logCrawl({ userId, url, status: "failed", storeType, productsFound: 0, durationMs: Date.now() - startTime, errorMessage: errMsg });
     } else {
       logCrawl({ userId, url, status: "success", storeType, productsFound: products.length, durationMs: Date.now() - startTime });
     }
@@ -686,21 +688,21 @@ export async function POST(req: NextRequest) {
     if (message.startsWith("Homepage ")) {
       const statusCode = parseInt(message.replace("Homepage ", ""), 10);
       if (statusCode === 403) {
-        logCrawl({ userId: userId ?? null, url: "", status: "failed", storeType: null, productsFound: 0, durationMs: Date.now() - startTime, errorMessage: message });
+        logCrawl({ userId, url, status: "failed", storeType, productsFound: 0, durationMs: Date.now() - startTime, errorMessage: message });
         return NextResponse.json(
           { error: "Access denied (403). This site may block automated requests. Try a different store URL.", code: "ACCESS_DENIED" },
           { status: 502 }
         );
       }
       if (statusCode === 404) {
-        logCrawl({ userId: userId ?? null, url: "", status: "failed", storeType: null, productsFound: 0, durationMs: Date.now() - startTime, errorMessage: message });
+        logCrawl({ userId, url, status: "failed", storeType, productsFound: 0, durationMs: Date.now() - startTime, errorMessage: message });
         return NextResponse.json(
           { error: "Page not found (404). Check the URL and try again." },
           { status: 404 }
         );
       }
       if (statusCode === 429) {
-        logCrawl({ userId: userId ?? null, url: "", status: "failed", storeType: null, productsFound: 0, durationMs: Date.now() - startTime, errorMessage: message });
+        logCrawl({ userId, url, status: "failed", storeType, productsFound: 0, durationMs: Date.now() - startTime, errorMessage: message });
         return NextResponse.json(
           { error: "This site is rate-limiting requests (429). Try again in a minute.", code: "RATE_LIMIT" },
           { status: 429 }
@@ -708,14 +710,14 @@ export async function POST(req: NextRequest) {
       }
     }
     if (message.includes("abort") || message.includes("fetch")) {
-      logCrawl({ userId: userId ?? null, url: "", status: "timeout", storeType: null, productsFound: 0, durationMs: Date.now() - startTime, errorMessage: message });
+      logCrawl({ userId, url, status: "timeout", storeType, productsFound: 0, durationMs: Date.now() - startTime, errorMessage: message });
       return NextResponse.json(
         { error: "Request timed out or URL could not be reached. Please try again." },
         { status: 504 }
       );
     }
     console.error("Scrape API error:", err);
-    logCrawl({ userId: userId ?? null, url: "", status: "failed", storeType: null, productsFound: 0, durationMs: Date.now() - startTime, errorMessage: message });
+    logCrawl({ userId, url, status: "failed", storeType, productsFound: 0, durationMs: Date.now() - startTime, errorMessage: message });
     return NextResponse.json(
       { error: "Unexpected error while scraping website." },
       { status: 500 }

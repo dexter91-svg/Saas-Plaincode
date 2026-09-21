@@ -5,6 +5,8 @@ import Card from "@/components/Card";
 import AiDemoSection from "@/components/AiDemoSection";
 import LandingChatSection from "@/components/LandingChatSection";
 import HeroSection from "@/components/HeroSection";
+import DemoSection from "@/components/DemoSection";
+import LandingNavbar from "@/components/LandingNavbar";
 import StatsBar from "@/components/StatsBar";
 import AnimatedSection from "@/components/AnimatedSection";
 import FoundingOfferBlock from "@/components/FoundingOfferBlock";
@@ -47,10 +49,13 @@ export default function HomePage() {
   ];
 
   return (
-    <>
+    <div className="landing-light min-h-screen">
+      <LandingNavbar />
       <main>
-        {/* Hero — above the fold: headline, subhead, single CTA only (no global nav) */}
+        {/* Hero — above the fold: headline, subhead, single CTA only */}
         <HeroSection />
+
+        <DemoSection />
 
         <StatsBar />
 
@@ -480,6 +485,6 @@ export default function HomePage() {
       </main>
 
       <Footer />
-    </>
+    </div>
   );
 }

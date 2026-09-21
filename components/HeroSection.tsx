@@ -1,112 +1,106 @@
-"use client";
-
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import Button from "./Button";
 
-function entranceClass(reduceMotion: boolean, delayMs: number, duration = "0.65s") {
-  if (reduceMotion) return "";
-  return `opacity-0 animate-fade-in-up [animation-duration:${duration}] [animation-delay:${delayMs}ms] [animation-fill-mode:both]`;
-}
+const RISE = "motion-safe:animate-plnb-rise";
 
+// Generic placeholder marks (no real brands). Replace with approved customer logos.
+const PLACEHOLDER_LOGOS = [
+  { key: "circle", shape: <circle cx="12" cy="12" r="10" />, text: "font-display italic" },
+  { key: "square", shape: <rect x="3" y="3" width="18" height="18" rx="4" />, text: "font-manrope font-extrabold tracking-tight" },
+  { key: "triangle", shape: <path d="M12 3 22 21H2z" />, text: "font-display" },
+  { key: "diamond", shape: <path d="M12 2 22 12 12 22 2 12z" />, text: "font-manrope font-semibold" },
+  { key: "hexagon", shape: <path d="M12 2 21 7v10l-9 5-9-5V7z" />, text: "font-display italic" },
+] as const;
+
+/** Landing hero + logo strip (design.md §2.2). Cream background to match the navbar. */
 export default function HeroSection() {
-  const sectionRef = useRef<HTMLElement>(null);
-  const [scrollShift, setScrollShift] = useState(0);
-  const [reduceMotion, setReduceMotion] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReduceMotion(mq.matches);
-    const onChange = () => setReduceMotion(mq.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
-
-  useEffect(() => {
-    if (reduceMotion) return;
-
-    const onScroll = () => {
-      const el = sectionRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const h = el.offsetHeight || 1;
-      const t = Math.min(1, Math.max(0, -rect.top / (h * 0.5)));
-      setScrollShift(t);
-    };
-
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll, { passive: true });
-    onScroll();
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-    };
-  }, [reduceMotion]);
-
-  const scrollStyle =
-    reduceMotion || scrollShift === 0
-      ? undefined
-      : {
-          transform: `translate3d(0, ${scrollShift * 40}px, 0) scale(${1 - scrollShift * 0.04})`,
-          opacity: Math.max(0.3, 1 - scrollShift * 0.58),
-        };
-
   return (
-    <section
-      ref={sectionRef}
-      className="relative min-h-[calc(100vh-0px)] border-b border-slate-800 bg-black px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-28 flex flex-col justify-center overflow-hidden"
-    >
-      {/* Soft vignette + subtle radial lift */}
-      <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_40%,rgba(249,115,22,0.08),transparent_55%)]"
-        aria-hidden
-      />
-
-      <div
-        className="relative mx-auto w-full max-w-4xl text-center will-change-transform"
-        style={scrollStyle}
-      >
-        <h1 className="text-2xl font-extrabold tracking-tight text-slate-100 sm:text-3xl md:text-4xl lg:text-[2.75rem] xl:text-5xl leading-tight sm:leading-tight md:leading-tight">
-          <span className={`inline-block ${entranceClass(reduceMotion, 60, "0.72s")}`}>
-            Your store is losing sales to unanswered questions.
-          </span>{" "}
-          <span className={`inline-block ${entranceClass(reduceMotion, 200, "0.7s")}`}>
-            <span
-              className={
-                reduceMotion
-                  ? "bg-gradient-to-r from-primary-400 to-primary-500 bg-clip-text text-transparent"
-                  : "inline-block bg-gradient-to-r from-primary-500 via-primary-300 to-primary-500 bg-[length:200%_100%] bg-clip-text text-transparent animate-plainbot-shimmer"
-              }
+    <section className="bg-cream pb-16">
+      <header id="hero" className="mx-auto max-w-[1160px] px-[6vw] pt-[76px]">
+        <div className="flex flex-wrap items-center gap-10">
+          <div className="min-w-0 flex-[1_1_440px]">
+            <div
+              className={`${RISE} inline-flex items-center gap-2 rounded-full bg-peach px-[15px] py-[7px] font-manrope text-[13px] font-bold tracking-[.02em] text-terracotta-dark`}
             >
-              Plainbot
-            </span>{" "}
-            fixes that in 10 minutes.
-          </span>
-        </h1>
+              For Shopify and WooCommerce stores
+            </div>
+            <h1
+              className={`${RISE} mt-6 max-w-[600px] font-display text-[clamp(38px,5.4vw,64px)] font-normal leading-[1.1] text-ink`} style={{ animationDelay: "80ms" }}>
+              You didn&apos;t start a store to answer the same question{" "}
+              <em className="italic text-terracotta">200 times a week.</em>
+            </h1>
+            <p
+              className={`${RISE} mt-[22px] max-w-[520px] font-manrope text-[19px] leading-[1.6] text-warm-body`} style={{ animationDelay: "160ms" }}>
+              Plainbot learns your store in minutes and handles the repetitive questions — so you only see the
+              ones that actually need you.
+            </p>
+            <div
+              className={`${RISE} mt-[34px] flex flex-wrap items-center gap-5`} style={{ animationDelay: "240ms" }}>
+              <Link
+                href="/signup?plan=free"
+                className="inline-block rounded-full bg-terracotta px-8 py-4 font-manrope text-base font-bold text-cream shadow-[0_14px_28px_-12px_rgba(190,91,55,.55)] transition-[background-color,transform] duration-200 hover:-translate-y-px hover:bg-terracotta-dark hover:text-cream active:scale-[.97]"
+              >
+                Start free, no card needed
+              </Link>
+              <Link
+                href="/#demo"
+                className="border-b border-ink/30 pb-[3px] font-manrope text-base font-bold text-ink transition-colors duration-200 hover:border-terracotta hover:text-terracotta"
+              >
+                See how it works
+              </Link>
+            </div>
+            <p
+              className={`${RISE} mt-[22px] font-manrope text-[13px] text-warm-muted`} style={{ animationDelay: "320ms" }}>
+              Free forever, no card required &nbsp;·&nbsp; Flat $79/mo on Pro, no per-resolution fees
+              &nbsp;·&nbsp; Cancel anytime
+            </p>
+          </div>
 
-        <p
-          className={`mt-6 text-lg leading-relaxed text-slate-400 ${entranceClass(
-            reduceMotion,
-            380,
-            "0.62s"
-          )}`}
-        >
-          AI chatbot trained on your store. Handles support, recovers carts, creates tickets. Works 24/7
-          automatically.
-        </p>
+          <div
+            className={`${RISE} flex max-w-[340px] flex-[1_1_280px] justify-center`} style={{ animationDelay: "300ms", animationDuration: ".9s" }}>
+            <div className="w-full max-w-[310px] motion-safe:animate-plnb-float rounded-[20px] border border-ink/[.08] bg-white p-5 shadow-[0_30px_70px_-24px_rgba(43,34,28,.28)]">
+              <div className="mb-3.5 flex items-center gap-2 border-b border-ink/[.06] pb-3.5">
+                <div className="h-2 w-2 rounded-full bg-sage" />
+                <div className="font-manrope text-[13px] font-bold text-ink">Plainbot</div>
+                <div className="ml-auto font-manrope text-xs text-warm-muted">Online</div>
+              </div>
+              <div className="flex flex-col gap-2.5 font-manrope">
+                <div className="flex justify-end">
+                  <div className="max-w-[82%] rounded-[14px] bg-ink px-3.5 py-2.5 text-[13px] leading-[1.4] text-cream">
+                    Any update on order #4821?
+                  </div>
+                </div>
+                <div className="flex items-end gap-1.5">
+                  <div className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full bg-terracotta text-[10px] font-bold text-cream">
+                    P
+                  </div>
+                  <div className="max-w-[82%] rounded-[14px] bg-peach px-3.5 py-2.5 text-[13px] leading-[1.4] text-ink">
+                    Shipped yesterday — arriving Thu.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
 
-        <div className={`mt-10 flex flex-col items-center justify-center gap-4 ${entranceClass(reduceMotion, 520, "0.58s")}`}>
-          <Link href="/signup?plan=free">
-            <Button
-              variant="primary"
-              className="min-w-[240px] rounded-full shadow-lg shadow-primary-600/25 transition-transform hover:scale-[1.02] active:scale-[0.98]"
+      {/* Logo strip — generic placeholder marks until real customer logos are approved */}
+      <div className="mx-auto mt-12 flex max-w-[1160px] flex-wrap items-center gap-x-8 gap-y-[22px] px-[6vw]">
+        <div className="whitespace-nowrap font-manrope text-[13px] font-bold text-warm-muted">
+          Built for stores like yours
+        </div>
+        <div className="flex flex-1 flex-wrap gap-[18px]">
+          {PLACEHOLDER_LOGOS.map((logo) => (
+            <div
+              key={logo.key}
+              className="flex h-9 items-center gap-2 text-ink opacity-50"
+              aria-hidden
             >
-              Start free, no card needed
-            </Button>
-          </Link>
-          <p className="text-xs text-slate-500">
-            Shopify &amp; WooCommerce Ready · Auto-scrapes products &amp; policies · 100 free chats/month
-          </p>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                {logo.shape}
+              </svg>
+              <span className={`text-[17px] text-ink ${logo.text}`}>Your logo</span>
+            </div>
+          ))}
         </div>
       </div>
     </section>
