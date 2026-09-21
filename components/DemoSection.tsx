@@ -226,6 +226,8 @@ const WIPE_STEP_MS = WIPE_MS;
 const WIPE_TOTAL_MS = TABS.length * WIPE_STEP_MS;
 /** Selecting a slide: each segment on the way fills (going forward) or empties (going back), this long each. */
 const JUMP_FILL_MS = 110;
+/** The highlight glides to the next segment for about this long; the countdown fill waits for it to settle. */
+const HIGHLIGHT_SLIDE_MS = 400;
 /** Width of one segment in the control bar (segments share the row equally, separated by gaps). */
 const SEGMENT_WIDTH = `calc((100% - ${(TABS.length - 1) * SEGMENT_GAP_PX}px) / ${TABS.length})`;
 /** Left edge of segment i within the row. */
@@ -563,6 +565,8 @@ export default function DemoSection({ autoAdvance = true }: { autoAdvance?: bool
   const [wrapCount, setWrapCount] = useState(0);
   // True while the wrap sweep is running, before the first slide starts playing again.
   const [sweeping, setSweeping] = useState(false);
+  // How long the countdown fill waits before it starts (the highlight is still gliding after an automatic advance).
+  const [fillDelayMs, setFillDelayMs] = useState(0);
   // How long the current sweep lasts; the highlight waits this long before reappearing.
   const [sweepMs, setSweepMs] = useState(0);
   // The last manual navigation: segments fill in turn (forward) or empty in turn (back), starting from the
@@ -646,6 +650,7 @@ export default function DemoSection({ autoAdvance = true }: { autoAdvance?: bool
           setSlideDir("next");
           setWiping(next === 0);
           setSweepPlan(null);
+          setFillDelayMs(next === 0 ? 0 : HIGHLIGHT_SLIDE_MS);
           setActiveTab(next);
           if (next === 0) {
             beginSweep(WIPE_TOTAL_MS);
@@ -738,10 +743,8 @@ export default function DemoSection({ autoAdvance = true }: { autoAdvance?: bool
   const currentProgress = () => {
     if (!autoAdvance) return 1;
     if (sweeping) return 0;
-    const anim = countdownRef.current?.getAnimations()[0];
-    const duration = Number(anim?.effect?.getTiming().duration);
-    if (!anim || !duration) return 0;
-    return Math.min(1, Math.max(0, Number(anim.currentTime) / duration));
+    const progress = countdownRef.current?.getAnimations()[0]?.effect?.getComputedTiming().progress;
+    return typeof progress === "number" ? Math.min(1, Math.max(0, progress)) : 0;
   };
 
   const goTo = (i: number, dir: "next" | "prev") => {
@@ -750,6 +753,7 @@ export default function DemoSection({ autoAdvance = true }: { autoAdvance?: bool
     clearTimers();
     pausedRef.current = false;
     setPaused(false);
+    setFillDelayMs(0);
     setSlideDir(dir);
     const wraps = dir === "next" && activeTab === TABS.length - 1 && i === 0;
     setWiping(wraps);
@@ -1020,7 +1024,7 @@ export default function DemoSection({ autoAdvance = true }: { autoAdvance?: bool
 
               {tab.type === "setup" && (
                 <div className="mx-auto grid w-full max-w-[980px] items-center gap-8 px-6 py-8 font-manrope md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] md:gap-12 md:px-10">
-                  <ol className="flex flex-col">
+                  <ol className="grid auto-rows-fr">
                     {tab.steps.map((st, i) => {
                       const done = i < revealCount;
                       const running = i === revealCount;
@@ -1111,7 +1115,7 @@ export default function DemoSection({ autoAdvance = true }: { autoAdvance?: bool
                       style={{
                         backgroundImage: "linear-gradient(#F3E3D6, #F3E3D6)",
                         backgroundSize: "0% 100%",
-                        animation: `plnb-fill ${tabDurationMs(tab)}ms linear forwards`,
+                        animation: `plnb-fill ${tabDurationMs(tab) - fillDelayMs}ms linear ${fillDelayMs}ms forwards`,
                       }}
                     />
                   )
