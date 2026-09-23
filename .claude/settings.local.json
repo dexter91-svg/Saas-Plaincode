@@ -25,7 +25,8 @@
       "Bash(curl -s -o /dev/null -w \"settings: %{http_code}\\\\n\" http://localhost:3000/settings -H \"Cookie: mock-auth=1\")",
       "Bash(curl -s \"http://localhost:3000/api/conversations/messages?conversationId=af999dc3-8ae6-4856-96d9-387c5a120d5d&chatbotId=0e243de1-e8d7-4846-b4a6-04341750b7b4\")",
       "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(len\\(d.get\\('messages',[]\\)\\)\\); [print\\(m['role'], '|', m['content'][:60]\\) for m in d.get\\('messages',[]\\)]\")",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(timeout 60 git ls-remote --heads plainbot)"
     ]
   }
 }

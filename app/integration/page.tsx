@@ -1,20 +1,19 @@
 "use client";
 
-import AppShell from "@/components/AppShell";
-import Card from "@/components/Card";
-import Button from "@/components/Button";
 import StepIndicator from "@/components/StepIndicator";
+import WizardHeader from "@/components/WizardHeader";
 import { useBot } from "@/components/BotContext";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { shopifyThemeLiquidSnippet, widgetScriptTagHtml } from "@/lib/widget-snippet";
+import { WIZARD_PRIMARY_BUTTON_CLASS, WIZARD_OUTLINE_BUTTON_CLASS, WIZARD_CARD_CLASS } from "@/lib/wizard-ui";
 
 const STORE_INSTRUCTIONS: Record<string, { title: string; steps: string[] }> = {
   shopify: {
     title: "Shopify",
     steps: [
       "Online Store → Themes → … → Edit code → open theme.liquid.",
-      "Paste the Shopify Liquid snippet (from step 1) just before </body> — not the plain HTML line, so Theme Check stays clean.",
+      "Paste the Shopify Liquid snippet (above) just before </body> — not the plain HTML line, so Theme Check stays clean.",
       "Save. Preview your store; the chat button should appear bottom-right.",
     ],
   },
@@ -29,7 +28,7 @@ const STORE_INSTRUCTIONS: Record<string, { title: string; steps: string[] }> = {
   custom: {
     title: "Custom / Other",
     steps: [
-      "Open your site’s main layout or template (the one that wraps every page).",
+      "Open your site's main layout or template (the one that wraps every page).",
       "Paste the script just before the closing </body> tag.",
       "Save and publish. The chat button will appear in the bottom-right on your site.",
     ],
@@ -78,87 +77,99 @@ export default function IntegrationPage() {
   const instructions = STORE_INSTRUCTIONS[storeType] || STORE_INSTRUCTIONS.custom;
 
   return (
-    <AppShell>
-      <div className="mx-auto max-w-4xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-cream">
+      <WizardHeader />
+      <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8">
         <StepIndicator currentStep={5} />
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-primary-400">Step 5: Install Widget</p>
-          <h1 className="mt-2 text-3xl font-bold text-slate-100">Integration</h1>
-          <p className="mt-2 text-slate-400">
-            Copy the snippet and add it to your store so the chat widget appears. Instructions depend on your platform.
+
+        <div className="mt-8 text-center">
+          <h1 className="font-display text-3xl text-ink sm:text-4xl">One last step: add this to your site</h1>
+          <p className="mt-2 font-manrope text-sm text-warm-body">
+            Copy this snippet and paste it before <code className="rounded bg-ink/[.06] px-1">&lt;/body&gt;</code> on
+            your site. Or skip for now and do it later from your dashboard.
           </p>
         </div>
 
         {!chatbotId ? (
-          <Card className="border-amber-500/30 bg-amber-500/5">
-            <p className="text-sm text-amber-200">
-              <strong>Create your chatbot first.</strong> Go to Connect your store, enter your website URL, and analyze. Then return here to get your snippet.
+          <div className={`mt-6 ${WIZARD_CARD_CLASS} border-amber-200 bg-amber-50`}>
+            <p className="font-manrope text-sm text-amber-800">
+              <strong>Create your chatbot first.</strong> Go to Connect your store, enter your website URL, and
+              analyze. Then return here to get your snippet.
             </p>
-            <Button variant="primary" className="mt-4" onClick={() => router.push("/create-bot")}>
+            <button
+              type="button"
+              className={`${WIZARD_PRIMARY_BUTTON_CLASS} mt-4`}
+              onClick={() => router.push("/create-bot")}
+            >
               Connect your store
-            </Button>
-          </Card>
+            </button>
+          </div>
         ) : (
           <>
-            <Card className="space-y-4">
-              <h2 className="text-sm font-semibold text-slate-100">1. Copy the snippet</h2>
-              <p className="text-sm text-slate-400">
-                The script uses <code className="rounded bg-slate-800 px-1 text-slate-200">async</code> so it is
-                non-blocking. Use the HTML line for WooCommerce and custom sites; for{" "}
-                <strong className="text-slate-300">Shopify</strong>, copy the Liquid block (Theme Check–friendly).
-              </p>
-              <div>
-                <p className="text-xs font-medium text-slate-300">WooCommerce / custom (HTML)</p>
-                <div className="mt-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-3 text-xs font-mono text-slate-100 break-all">
-                  {embedSnippet}
-                </div>
-                <Button variant="secondary" className="mt-2" onClick={() => handleCopy("embed")}>
-                  {copiedKind === "embed" ? "Copied!" : "Copy snippet"}
-                </Button>
+            <div className={`mt-6 ${WIZARD_CARD_CLASS}`}>
+              <p className="font-manrope text-xs font-semibold text-ink">WooCommerce / custom (HTML)</p>
+              <div className="mt-1.5 overflow-x-auto rounded-lg border border-ink/[.1] bg-ink px-3 py-3 font-mono text-xs text-cream/90">
+                {embedSnippet}
               </div>
-              <div>
-                <p className="text-xs font-medium text-slate-300">Shopify — paste in theme.liquid before &lt;/body&gt;</p>
-                <div className="mt-1 whitespace-pre-wrap rounded-xl border border-slate-700 bg-slate-900 px-3 py-3 text-xs font-mono text-slate-100 break-all">
-                  {shopifySnippet}
-                </div>
-                <Button variant="secondary" className="mt-2" onClick={() => handleCopy("shopify")}>
-                  {copiedKind === "shopify" ? "Copied!" : "Copy Shopify snippet"}
-                </Button>
-              </div>
-            </Card>
+              <button type="button" className={`${WIZARD_OUTLINE_BUTTON_CLASS} mt-2 text-xs`} onClick={() => handleCopy("embed")}>
+                {copiedKind === "embed" ? "Copied!" : "Copy snippet"}
+              </button>
 
-            <Card className="space-y-4">
-              <h2 className="text-sm font-semibold text-slate-100">2. Where to paste — {instructions.title}</h2>
-              <ul className="list-decimal list-inside space-y-2 text-sm text-slate-400">
+              <p className="mt-5 font-manrope text-xs font-semibold text-ink">
+                Shopify — paste in theme.liquid before &lt;/body&gt;
+              </p>
+              <div className="mt-1.5 overflow-x-auto whitespace-pre-wrap break-all rounded-lg border border-ink/[.1] bg-ink px-3 py-3 font-mono text-xs text-cream/90">
+                {shopifySnippet}
+              </div>
+              <button type="button" className={`${WIZARD_OUTLINE_BUTTON_CLASS} mt-2 text-xs`} onClick={() => handleCopy("shopify")}>
+                {copiedKind === "shopify" ? "Copied!" : "Copy Shopify snippet"}
+              </button>
+            </div>
+
+            <div className={`mt-4 ${WIZARD_CARD_CLASS}`}>
+              <h2 className="font-manrope text-sm font-semibold text-ink">Where to paste — {instructions.title}</h2>
+              <ol className="mt-2 list-inside list-decimal space-y-2 font-manrope text-sm text-warm-body">
                 {instructions.steps.map((step, i) => (
                   <li key={i}>{step}</li>
                 ))}
-              </ul>
-              <p className="text-xs text-slate-500">
-                Paste the script once, just before the closing <code className="rounded bg-slate-800 px-1">&lt;/body&gt;</code>. The widget will appear on every page.
-              </p>
-            </Card>
+              </ol>
+            </div>
 
-            <Card className="space-y-3">
-              <h2 className="text-sm font-semibold text-slate-100">Test your chatbot</h2>
-              <p className="text-sm text-slate-400">
-                Open the chat panel and ask a question. The AI uses your store content. You can also forward conversations to your support email from the chat.
+            <button
+              type="button"
+              onClick={() => router.push("/dashboard")}
+              className={`${WIZARD_PRIMARY_BUTTON_CLASS} mt-6 w-full`}
+            >
+              Finish setup
+            </button>
+            <p className="mt-3 text-center font-manrope text-sm text-warm-muted">
+              <button
+                type="button"
+                onClick={() => router.push("/dashboard")}
+                className="font-semibold text-terracotta hover:text-terracotta-dark"
+              >
+                I&apos;ll do this later, take me to the dashboard
+              </button>
+            </p>
+
+            <div className={`mt-10 ${WIZARD_CARD_CLASS}`}>
+              <h2 className="font-manrope text-sm font-semibold text-ink">Test your chatbot</h2>
+              <p className="mt-1 font-manrope text-sm text-warm-body">
+                Open the chat panel and ask a question. The AI uses your store content. You can also forward
+                conversations to your support email from the chat.
               </p>
-              <div className="flex flex-wrap gap-3">
-                <Button variant="primary" onClick={() => router.push("/test-chatbot")}>
+              <div className="mt-3 flex flex-wrap gap-3">
+                <button type="button" className={WIZARD_PRIMARY_BUTTON_CLASS} onClick={() => router.push("/test-chatbot")}>
                   Test Chatbot
-                </Button>
-                <Button variant="outline" onClick={() => router.push("/demo-website")}>
+                </button>
+                <button type="button" className={WIZARD_OUTLINE_BUTTON_CLASS} onClick={() => router.push("/demo-website")}>
                   Open sample website
-                </Button>
-                <Button variant="ghost" onClick={() => router.push("/dashboard")}>
-                  Dashboard
-                </Button>
+                </button>
               </div>
-            </Card>
+            </div>
           </>
         )}
       </div>
-    </AppShell>
+    </div>
   );
 }

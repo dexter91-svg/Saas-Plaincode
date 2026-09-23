@@ -1,11 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Button from "@/components/Button";
-import Card from "@/components/Card";
 import { useBot } from "@/components/BotContext";
 import { useAgentNotificationSounds } from "@/hooks/useAgentNotificationSounds";
 import { isAgentAudioUnlocked } from "@/lib/agent-notification-sounds";
+import { WIZARD_CARD_CLASS, WIZARD_INPUT_CLASS, WIZARD_PRIMARY_BUTTON_CLASS, WIZARD_OUTLINE_BUTTON_CLASS } from "@/lib/wizard-ui";
 
 type ConversationRow = {
   id: string;
@@ -48,9 +47,9 @@ function roleLabel(role: string): string {
 }
 
 function bubbleClass(role: string): string {
-  if (role === "user") return "ml-8 bg-slate-700 text-slate-100";
-  if (role === "agent") return "mr-8 border border-emerald-500/40 bg-emerald-950/50 text-emerald-50";
-  return "mr-8 bg-slate-800 text-slate-200";
+  if (role === "user") return "ml-8 bg-peach text-ink";
+  if (role === "agent") return "mr-8 border border-sage/40 bg-sage/10 text-ink";
+  return "mr-8 bg-cream-alt text-ink";
 }
 
 export default function LiveConversationsInbox() {
@@ -270,23 +269,23 @@ export default function LiveConversationsInbox() {
 
   if (!chatbotId) {
     return (
-      <Card>
-        <p className="py-6 text-center text-slate-400">Select a store/chatbot in the top bar to monitor conversations.</p>
-      </Card>
+      <div className={WIZARD_CARD_CLASS}>
+        <p className="py-6 text-center font-manrope text-sm text-warm-muted">Select a store/chatbot in the top bar to monitor conversations.</p>
+      </div>
     );
   }
 
   return (
     <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(260px,340px)_1fr] lg:items-stretch">
-      <Card className="flex max-h-[min(720px,75vh)] flex-col overflow-hidden p-0">
-        <div className="border-b border-slate-700/80 px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Inbox</p>
-          <p className="text-sm text-slate-400">Updates every 5s · live = activity in last 3 min</p>
+      <div className={`flex max-h-[min(720px,75vh)] flex-col overflow-hidden ${WIZARD_CARD_CLASS} !p-0`}>
+        <div className="border-b border-ink/[.08] px-4 py-3.5">
+          <p className="font-manrope text-[11px] font-extrabold uppercase tracking-wide text-warm-muted">Inbox</p>
+          <p className="mt-0.5 font-manrope text-xs text-warm-muted">Updates every 5s · live = activity in last 3 min</p>
           {!audioReady && (
-            <p className="mt-1 text-[11px] text-amber-400/90">Click anywhere on the page to enable sound alerts.</p>
+            <p className="mt-1 font-manrope text-[11px] text-amber-700">Click anywhere on the page to enable sound alerts.</p>
           )}
           {/* Filter tabs */}
-          <div className="mt-3 flex gap-1">
+          <div className="mt-3 flex flex-wrap gap-1.5">
             {(["all", "agent", "normal"] as const).map((f) => {
               const label = f === "all" ? "All" : f === "agent" ? "Needs Agent" : "Normal";
               const count =
@@ -301,18 +300,15 @@ export default function LiveConversationsInbox() {
                   key={f}
                   type="button"
                   onClick={() => setFilter(f)}
-                  className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 font-manrope text-xs font-bold transition-colors ${
                     active
                       ? f === "agent"
-                        ? "bg-amber-400/20 text-amber-300"
-                        : "bg-slate-600 text-slate-100"
-                      : "text-slate-500 hover:text-slate-300"
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-ink text-cream"
+                      : "bg-peach text-warm-muted hover:bg-peach/70"
                   }`}
                 >
-                  {label}
-                  <span className={`rounded px-1 py-0.5 text-[10px] ${active ? "bg-white/10" : "bg-slate-700/60"}`}>
-                    {count}
-                  </span>
+                  {label} {count}
                 </button>
               );
             })}
@@ -320,11 +316,11 @@ export default function LiveConversationsInbox() {
         </div>
         <div className="flex-1 overflow-y-auto">
           {loadingList && conversations.length === 0 ? (
-            <p className="p-4 text-center text-sm text-slate-500">Loading…</p>
+            <p className="p-4 text-center font-manrope text-sm text-warm-muted">Loading…</p>
           ) : conversations.length === 0 ? (
-            <p className="p-4 text-center text-sm text-slate-500">No conversations yet.</p>
+            <p className="p-4 text-center font-manrope text-sm text-warm-muted">No conversations yet.</p>
           ) : (
-            <ul className="divide-y divide-slate-700/40">
+            <ul className="divide-y divide-ink/[.06]">
               {[...conversations]
                 .filter((c) =>
                   filter === "agent" ? c.requestsHuman : filter === "normal" ? !c.requestsHuman : true
@@ -332,31 +328,31 @@ export default function LiveConversationsInbox() {
                 .sort((a, b) => (b.requestsHuman ? 1 : 0) - (a.requestsHuman ? 1 : 0))
                 .map((conv) => {
                   const accentColor = conv.requestsHuman
-                    ? "bg-amber-400"
+                    ? "bg-amber-500"
                     : conv.handoffMode === "human"
-                    ? "bg-emerald-500"
+                    ? "bg-sage"
                     : conv.isLive
-                    ? "bg-sky-500"
-                    : "bg-slate-600";
+                    ? "bg-blue-400"
+                    : "bg-ink/[.15]";
                   const avatarColor = conv.requestsHuman
-                    ? "bg-amber-500/20 text-amber-300 ring-1 ring-amber-400/30"
+                    ? "bg-amber-100 text-amber-700 ring-1 ring-amber-300"
                     : conv.handoffMode === "human"
-                    ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30"
-                    : "bg-slate-700 text-slate-400";
+                    ? "bg-sage/10 text-sage ring-1 ring-sage/30"
+                    : "bg-cream-alt text-warm-muted";
                   const isSelected = selectedId === conv.id;
                   return (
                     <li key={conv.id} className="relative">
                       <button
                         type="button"
                         onClick={() => setSelectedId(conv.id)}
-                        className={`w-full pl-5 pr-4 py-3 text-left transition-colors ${
+                        className={`w-full py-3 pl-5 pr-4 text-left transition-colors ${
                           isSelected
                             ? conv.requestsHuman
-                              ? "bg-amber-950/40"
-                              : "bg-slate-700/50"
+                              ? "bg-amber-50"
+                              : "bg-cream"
                             : conv.requestsHuman
-                            ? "bg-amber-950/20 hover:bg-amber-950/30"
-                            : "hover:bg-slate-800/50"
+                            ? "bg-amber-50/40 hover:bg-amber-50/70"
+                            : "hover:bg-cream/70"
                         }`}
                       >
                         {/* Left accent bar — consistent on every row, color indicates state */}
@@ -364,34 +360,34 @@ export default function LiveConversationsInbox() {
 
                         <div className="flex items-start gap-3">
                           {/* Avatar */}
-                          <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarColor}`}>
+                          <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-manrope text-xs font-bold ${avatarColor}`}>
                             {(conv.customer?.[0] ?? "G").toUpperCase()}
                           </div>
 
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="truncate text-sm font-semibold text-slate-100">
+                              <span className="truncate font-manrope text-sm font-bold text-ink">
                                 {conv.customer}
                               </span>
                               {conv.requestsHuman && (
-                                <span className="shrink-0 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-300">
+                                <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 font-manrope text-[10px] font-bold uppercase tracking-wide text-amber-700">
                                   Needs Agent
                                 </span>
                               )}
                               {conv.isLive && (
-                                <span className="shrink-0 flex items-center gap-1 rounded bg-red-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-400">
-                                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-400" />
+                                <span className="flex shrink-0 items-center gap-1 rounded-full bg-red-100 px-1.5 py-0.5 font-manrope text-[10px] font-bold uppercase tracking-wide text-red-600">
+                                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
                                   Live
                                 </span>
                               )}
                               {conv.handoffMode === "human" && (
-                                <span className="shrink-0 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-400">
+                                <span className="shrink-0 rounded-full bg-sage/10 px-1.5 py-0.5 font-manrope text-[10px] font-bold uppercase tracking-wide text-sage">
                                   You
                                 </span>
                               )}
                             </div>
-                            <p className="mt-1 truncate text-xs text-slate-400">{conv.preview}</p>
-                            <p className="mt-1 text-[10px] text-slate-500">{formatRelative(conv.date)}</p>
+                            <p className="mt-1 truncate font-manrope text-xs text-warm-muted">{conv.preview}</p>
+                            <p className="mt-1 font-manrope text-[10px] text-warm-muted">{formatRelative(conv.date)}</p>
                           </div>
                         </div>
                       </button>
@@ -401,41 +397,41 @@ export default function LiveConversationsInbox() {
             </ul>
           )}
         </div>
-      </Card>
+      </div>
 
-      <Card className="flex max-h-[min(720px,75vh)] flex-col overflow-hidden p-0">
+      <div className={`flex max-h-[min(720px,75vh)] flex-col overflow-hidden ${WIZARD_CARD_CLASS} !p-0`}>
         {!selectedId ? (
-          <p className="flex flex-1 items-center justify-center p-8 text-center text-slate-500">
+          <p className="flex flex-1 items-center justify-center p-8 text-center font-manrope text-sm text-warm-muted">
             Select a conversation to view the thread and take over live chats.
           </p>
         ) : (
           <>
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-700/80 px-4 py-3">
-              <div className="min-w-0 flex items-start gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink/[.08] px-4 py-3.5">
+              <div className="flex min-w-0 items-start gap-3">
                 {/* Avatar matching the inbox */}
-                <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-manrope text-xs font-bold ${
                   selected?.requestsHuman
-                    ? "bg-amber-500/20 text-amber-300 ring-1 ring-amber-400/30"
+                    ? "bg-amber-100 text-amber-700 ring-1 ring-amber-300"
                     : handoffMode === "human"
-                    ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30"
-                    : "bg-slate-700 text-slate-400"
+                    ? "bg-sage/10 text-sage ring-1 ring-sage/30"
+                    : "bg-cream-alt text-warm-muted"
                 }`}>
                   {((selected?.customer ?? "G")[0]).toUpperCase()}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <p className="truncate font-semibold text-slate-100">{selected?.customer ?? "Conversation"}</p>
+                    <p className="truncate font-manrope text-sm font-bold text-ink">{selected?.customer ?? "Conversation"}</p>
                     {selected?.requestsHuman && (
-                      <span className="rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-300">
+                      <span className="rounded-full bg-amber-100 px-1.5 py-0.5 font-manrope text-[10px] font-bold uppercase tracking-wide text-amber-700">
                         Needs Agent
                       </span>
                     )}
                   </div>
-                  <p className="flex items-center gap-1.5 text-xs text-slate-500">
-                    <span className={`h-1.5 w-1.5 rounded-full ${isLive ? "bg-green-400 animate-pulse" : "bg-slate-600"}`} />
+                  <p className="mt-0.5 flex items-center gap-1.5 font-manrope text-xs text-warm-muted">
+                    <span className={`h-1.5 w-1.5 rounded-full ${isLive ? "animate-pulse bg-green-500" : "bg-ink/[.2]"}`} />
                     {isLive ? "Active now" : "Idle"}
-                    <span className="text-slate-700">·</span>
-                    <span className={handoffMode === "human" ? "text-emerald-400" : "text-slate-500"}>
+                    <span className="text-ink/20">·</span>
+                    <span className={handoffMode === "human" ? "font-semibold text-sage" : "text-warm-muted"}>
                       {handoffMode === "human" ? "You are chatting" : "AI assistant"}
                     </span>
                   </p>
@@ -443,28 +439,28 @@ export default function LiveConversationsInbox() {
               </div>
               <div className="flex flex-wrap gap-2">
                 {!iAmAgent ? (
-                  <Button type="button" variant="primary" className="px-3 py-1.5 text-xs" disabled={busy} onClick={takeChat}>
+                  <button type="button" className={`${WIZARD_PRIMARY_BUTTON_CLASS} px-3.5 py-2 text-xs`} disabled={busy} onClick={takeChat}>
                     Take chat
-                  </Button>
+                  </button>
                 ) : (
-                  <Button type="button" variant="ghost" className="px-3 py-1.5 text-xs text-amber-300" disabled={busy} onClick={releaseChat}>
+                  <button type="button" className={`${WIZARD_OUTLINE_BUTTON_CLASS} px-3.5 py-2 text-xs text-amber-700`} disabled={busy} onClick={releaseChat}>
                     End chat · resume AI
-                  </Button>
+                  </button>
                 )}
               </div>
             </div>
 
             {error && (
-              <p className="border-b border-red-500/30 bg-red-500/10 px-4 py-2 text-xs text-red-300">{error}</p>
+              <p className="border-b border-red-200 bg-red-50 px-4 py-2 font-manrope text-xs text-red-600">{error}</p>
             )}
 
             <div className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
               {loadingThread && messages.length === 0 ? (
-                <p className="text-center text-sm text-slate-500">Loading messages…</p>
+                <p className="text-center font-manrope text-sm text-warm-muted">Loading messages…</p>
               ) : (
                 messages.map((m) => (
-                  <div key={m.id} className={`rounded-lg px-3 py-2 text-sm ${bubbleClass(m.role)}`}>
-                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  <div key={m.id} className={`rounded-lg px-3 py-2 font-manrope text-sm ${bubbleClass(m.role)}`}>
+                    <p className="mb-1 font-manrope text-[10px] font-bold uppercase tracking-wide text-warm-muted">
                       {roleLabel(m.role)}
                     </p>
                     <p className="whitespace-pre-wrap break-words">{m.content}</p>
@@ -475,25 +471,25 @@ export default function LiveConversationsInbox() {
             </div>
 
             {iAmAgent && (
-              <form onSubmit={sendAgentMessage} className="border-t border-slate-700/80 p-3">
-                <p className="mb-2 text-xs text-emerald-400/90">Typing here sends to the customer in real time.</p>
+              <form onSubmit={sendAgentMessage} className="border-t border-ink/[.08] p-3">
+                <p className="mb-2 font-manrope text-xs font-semibold text-sage">Typing here sends to the customer in real time.</p>
                 <div className="flex gap-2">
                   <input
                     value={agentInput}
                     onChange={(e) => setAgentInput(e.target.value)}
                     placeholder="Reply to customer…"
-                    className="flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+                    className={`flex-1 ${WIZARD_INPUT_CLASS}`}
                     disabled={busy}
                   />
-                  <Button type="submit" variant="primary" className="shrink-0 px-4 py-2 text-sm" disabled={busy || !agentInput.trim()}>
+                  <button type="submit" className={`shrink-0 ${WIZARD_PRIMARY_BUTTON_CLASS} px-4 py-2.5 text-sm`} disabled={busy || !agentInput.trim()}>
                     Send
-                  </Button>
+                  </button>
                 </div>
               </form>
             )}
           </>
         )}
-      </Card>
+      </div>
     </div>
   );
 }

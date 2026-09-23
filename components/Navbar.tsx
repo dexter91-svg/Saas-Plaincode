@@ -1,13 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState, useEffect, useRef, useCallback } from "react";
-import Button from "./Button";
-import Logo from "./Logo";
 import { useAppShell } from "./AppShellContext";
 import StoreSwitcher from "./StoreSwitcher";
-import { clearBotStorage } from "@/lib/bot-local-storage";
+import { useLogout } from "@/lib/use-logout";
 
 const APP_ROUTES = [
   "/dashboard",
@@ -29,6 +27,9 @@ const APP_ROUTES = [
   "/logs",
 ];
 
+const NAV_LINK =
+  "relative inline-block font-manrope text-sm font-semibold text-ink transition-colors duration-200 hover:text-terracotta after:absolute after:-bottom-1 after:left-0 after:h-0.5 after:w-full after:origin-left after:scale-x-0 after:rounded-full after:bg-terracotta after:transition-transform after:duration-300 after:ease-out hover:after:scale-x-100 focus-visible:after:scale-x-100 motion-reduce:after:transition-none";
+
 function MenuIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
@@ -47,7 +48,7 @@ function CloseIcon({ className }: { className?: string }) {
 
 export default function Navbar() {
   const pathname = usePathname();
-  const router = useRouter();
+  const logout = useLogout();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { sidebarVisible, setMobileSidebarOpen } = useAppShell();
 
@@ -88,15 +89,7 @@ export default function Navbar() {
   }, [mobileMenuOpen]);
 
   const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      document.cookie = "mock-auth=; path=/; max-age=0";
-      window.localStorage.removeItem("mock-auth");
-      clearBotStorage();
-    } catch {
-      // ignore
-    }
-    router.push("/login");
+    await logout();
     setMobileMenuOpen(false);
   };
 
@@ -104,18 +97,10 @@ export default function Navbar() {
 
   const navLinks = !isAppArea ? (
     <>
-      <Link
-        href="/pricing"
-        onClick={closeMobileMenu}
-        className="text-sm font-medium text-slate-400 hover:text-slate-100"
-      >
+      <Link href="/pricing" onClick={closeMobileMenu} className={NAV_LINK}>
         Pricing
       </Link>
-      <Link
-        href="/multi-agent"
-        onClick={closeMobileMenu}
-        className="text-sm font-medium text-slate-400 hover:text-slate-100"
-      >
+      <Link href="/multi-agent" onClick={closeMobileMenu} className={NAV_LINK}>
         Multi-Agent
       </Link>
     </>
@@ -125,23 +110,21 @@ export default function Navbar() {
     <button
       type="button"
       onClick={handleLogout}
-      className="rounded-md border border-slate-600 bg-transparent px-3 py-1.5 text-sm font-medium text-slate-300 hover:border-slate-500 hover:bg-slate-800 hover:text-slate-100"
+      className="rounded-full border border-ink/[.15] bg-white px-4 py-1.5 font-manrope text-sm font-semibold text-ink transition-colors hover:bg-ink/[.05]"
     >
       Logout
     </button>
   ) : (
     <>
-      <Link
-        href="/login"
-        onClick={closeMobileMenu}
-        className="text-sm font-medium text-slate-400 hover:text-slate-100"
-      >
+      <Link href="/login" onClick={closeMobileMenu} className={NAV_LINK}>
         Log in
       </Link>
-      <Link href="/signup?plan=free" onClick={closeMobileMenu}>
-        <Button variant="primary" className="whitespace-normal text-center text-xs sm:text-sm">
-          Start free, no card needed
-        </Button>
+      <Link
+        href="/signup?plan=free"
+        onClick={closeMobileMenu}
+        className="whitespace-normal rounded-full bg-terracotta px-5 py-[9px] text-center font-manrope text-xs font-bold text-cream transition-[background-color,transform,box-shadow] duration-200 hover:-translate-y-px hover:bg-terracotta-dark hover:text-cream hover:shadow-[0_10px_20px_-10px_rgba(190,91,55,.6)] active:scale-[.97] motion-reduce:transition-none sm:text-sm"
+      >
+        Start free, no card needed
       </Link>
     </>
   );
@@ -149,21 +132,18 @@ export default function Navbar() {
   return (
     <>
       <header
-        className={`sticky top-0 z-50 w-full border-b border-slate-800 bg-black/95 backdrop-blur transition-transform duration-300 ${
-          visible ? "translate-y-0" : "-translate-y-full"
-        }`}
+        className={`sticky top-0 z-50 w-full border-b border-ink/[.08] backdrop-blur transition-transform duration-300 ${
+          isAppArea ? "bg-white/95" : "bg-cream/95"
+        } ${visible ? "translate-y-0" : "-translate-y-full"}`}
       >
         <nav className="relative mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:gap-3 sm:px-4 sm:py-2 md:px-6 lg:px-8">
           {/* Logo + title - truncate on small screens */}
           <Link
             href="/"
             onClick={closeMobileMenu}
-            className="flex min-w-0 shrink items-center gap-2 text-slate-100 no-underline"
+            className="flex min-w-0 shrink items-center font-display text-xl italic text-ink no-underline hover:text-ink sm:text-2xl"
           >
-            <Logo size="lg" />
-            <span className="truncate text-sm font-semibold sm:text-base sm:whitespace-nowrap lg:text-lg">
-              Plainbot
-            </span>
+            <span className="truncate">Plainbot</span>
           </Link>
 
           {isAppArea && (
@@ -190,7 +170,7 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => setMobileSidebarOpen(true)}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+                className="rounded-lg p-2 text-warm-muted transition-colors hover:bg-ink/[.05] hover:text-ink"
                 aria-label="Open menu"
               >
                 <MenuIcon className="h-6 w-6" />
@@ -199,7 +179,7 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+                className="rounded-lg p-2 text-warm-muted transition-colors hover:bg-ink/[.05] hover:text-ink"
                 aria-expanded={mobileMenuOpen}
                 aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
               >
@@ -216,23 +196,23 @@ export default function Navbar() {
         {/* Mobile menu panel */}
         {mobileMenuOpen && (
           <div
-            className="fixed inset-0 top-[53px] z-40 bg-black/90 backdrop-blur sm:hidden"
+            className="fixed inset-0 top-[53px] z-40 bg-cream/95 backdrop-blur sm:hidden"
             aria-hidden={!mobileMenuOpen}
           >
-            <div className="flex flex-col gap-1 border-t border-slate-800 bg-black px-4 py-4">
+            <div className="flex flex-col gap-1 border-t border-ink/[.08] bg-cream px-4 py-4">
               {navLinks && (
-                <div className="flex flex-col gap-1 border-b border-slate-800 pb-4">
+                <div className="flex flex-col gap-1 border-b border-ink/[.08] pb-4">
                   <Link
                     href="/pricing"
                     onClick={closeMobileMenu}
-                    className="rounded-lg px-3 py-2.5 text-base font-medium text-slate-300 hover:bg-slate-800 hover:text-slate-100"
+                    className="rounded-lg px-3 py-2.5 font-manrope text-base font-medium text-ink transition-colors hover:bg-ink/[.05]"
                   >
                     Pricing
                   </Link>
                   <Link
                     href="/multi-agent"
                     onClick={closeMobileMenu}
-                    className="rounded-lg px-3 py-2.5 text-base font-medium text-slate-300 hover:bg-slate-800 hover:text-slate-100"
+                    className="rounded-lg px-3 py-2.5 font-manrope text-base font-medium text-ink transition-colors hover:bg-ink/[.05]"
                   >
                     Multi-Agent
                   </Link>
@@ -243,7 +223,7 @@ export default function Navbar() {
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="rounded-lg border border-slate-600 bg-transparent px-3 py-2.5 text-left text-sm font-medium text-slate-300 hover:border-slate-500 hover:bg-slate-800 hover:text-slate-100"
+                    className="rounded-lg border border-ink/[.15] bg-white px-3 py-2.5 text-left font-manrope text-sm font-semibold text-ink transition-colors hover:bg-ink/[.05]"
                   >
                     Logout
                   </button>
@@ -252,14 +232,14 @@ export default function Navbar() {
                     <Link
                       href="/login"
                       onClick={closeMobileMenu}
-                      className="rounded-lg px-3 py-2.5 text-center text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-slate-100"
+                      className="rounded-lg px-3 py-2.5 text-center font-manrope text-sm font-semibold text-ink transition-colors hover:bg-ink/[.05]"
                     >
                       Log in
                     </Link>
                     <Link
                       href="/signup?plan=free"
                       onClick={closeMobileMenu}
-                      className="rounded-lg bg-primary-500 px-3 py-2.5 text-center text-sm font-semibold text-white hover:bg-primary-600"
+                      className="rounded-full bg-terracotta px-3 py-2.5 text-center font-manrope text-sm font-bold text-cream transition-colors hover:bg-terracotta-dark"
                     >
                       Start free, no card needed
                     </Link>

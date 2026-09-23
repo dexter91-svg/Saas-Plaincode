@@ -3,9 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import AppShell from "@/components/AppShell";
-import Card from "@/components/Card";
-import Button from "@/components/Button";
 import { useBot } from "@/components/BotContext";
+import { WIZARD_CARD_CLASS, WIZARD_PRIMARY_BUTTON_CLASS, WIZARD_OUTLINE_BUTTON_CLASS } from "@/lib/wizard-ui";
 
 export default function UpgradePage() {
   const { setUserPlan, setConversationRemaining } = useBot();
@@ -38,47 +37,50 @@ export default function UpgradePage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8">
-        <h1 className="text-2xl font-bold text-slate-100">Upgrade to Pro</h1>
-        <p className="mt-1 text-slate-400">
-          Pro includes 3,000 conversations per month (see plainbot.io/pricing for Growth and Agency). Your dashboard and conversations stay the same.
-        </p>
+      <div className="min-h-full bg-cream">
+        <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8">
+          <h1 className="font-display text-[28px] text-ink">Upgrade to Pro</h1>
+          <p className="mt-1.5 font-manrope text-sm text-warm-body">
+            Pro includes 3,000 conversations per month (see plainbot.io/pricing for Growth and Agency). Your
+            dashboard and conversations stay the same.
+          </p>
 
-        {done ? (
-          <Card className="mt-8 border-emerald-500/30 bg-emerald-500/10">
-            <h2 className="text-lg font-semibold text-emerald-400">You&apos;re on Pro</h2>
-            <p className="mt-2 text-slate-300">
-              Your plan is now Pro with 3,000 conversations per month. You can keep using your chatbot as before.
-            </p>
-            <Link href="/dashboard" className="mt-4 inline-block">
-              <Button variant="primary">Back to dashboard</Button>
-            </Link>
-          </Card>
-        ) : (
-          <Card className="mt-8 border-primary-500/30 bg-primary-500/5">
-            <h2 className="text-lg font-semibold text-slate-200">Payment (Stripe coming soon)</h2>
-            <p className="mt-2 text-slate-400">
-              We&apos;re adding Stripe so you can pay securely. For now you can complete the upgrade below to get Pro access.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-4">
-              <Button
-                variant="primary"
-                onClick={handleCompleteUpgrade}
-                disabled={loading}
-              >
-                {loading ? "Upgrading…" : "Complete upgrade"}
-              </Button>
-              <Link href="/pricing">
-                <Button variant="ghost" className="text-slate-300">
-                  View pricing
-                </Button>
+          {done ? (
+            <div className={`mt-6 ${WIZARD_CARD_CLASS} border-sage/30 bg-sage/5`}>
+              <h2 className="font-manrope text-lg font-bold text-sage">You&apos;re on Pro</h2>
+              <p className="mt-2 font-manrope text-sm text-warm-body">
+                Your plan is now Pro with 3,000 conversations per month. You can keep using your chatbot as before.
+              </p>
+              <Link href="/dashboard" className={`mt-4 inline-flex ${WIZARD_PRIMARY_BUTTON_CLASS} px-5 py-2.5 text-sm`}>
+                Back to dashboard
               </Link>
             </div>
-            {error && (
-              <p className="mt-4 text-sm text-red-400">{error}</p>
-            )}
-          </Card>
-        )}
+          ) : (
+            <div className={`mt-6 ${WIZARD_CARD_CLASS} border-terracotta/25 bg-terracotta/5`}>
+              <h2 className="font-manrope text-lg font-bold text-ink">Payment (Stripe coming soon)</h2>
+              <p className="mt-2 font-manrope text-sm text-warm-body">
+                We&apos;re adding Stripe so you can pay securely. For now you can complete the upgrade below to
+                get Pro access.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={handleCompleteUpgrade}
+                  disabled={loading}
+                  className={`${WIZARD_PRIMARY_BUTTON_CLASS} px-5 py-2.5 text-sm`}
+                >
+                  {loading ? "Upgrading…" : "Complete upgrade"}
+                </button>
+                <Link href="/pricing" className={`${WIZARD_OUTLINE_BUTTON_CLASS} px-5 py-2.5 text-sm`}>
+                  View pricing
+                </Link>
+              </div>
+              {error && (
+                <p className="mt-4 font-manrope text-sm text-red-600">{error}</p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </AppShell>
   );

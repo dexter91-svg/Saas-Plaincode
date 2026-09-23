@@ -4,12 +4,11 @@ import Link from "next/link";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import AppShell from "@/components/AppShell";
-import Card from "@/components/Card";
-import Button from "@/components/Button";
 import { useBot, type Personality } from "@/components/BotContext";
 import { nearLimitConversationThreshold, UNLIMITED_CONVERSATIONS_DISPLAY } from "@/lib/plans";
 import { CUSTOM_PLAN_CALENDLY_URL } from "@/lib/calendly";
 import { shopifyThemeLiquidSnippet, widgetScriptTagHtml } from "@/lib/widget-snippet";
+import { WIZARD_PRIMARY_BUTTON_CLASS, WIZARD_OUTLINE_BUTTON_CLASS, WIZARD_CARD_CLASS } from "@/lib/wizard-ui";
 
 const TOTAL_CONVERSATIONS_FALLBACK = 100;
 
@@ -309,61 +308,62 @@ function DashboardContent() {
 
   return (
     <AppShell>
+      <div className="min-h-full bg-cream">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         {upgradeError && (
-          <p className="mb-4 rounded-lg border border-red-900/50 bg-red-950/30 px-4 py-2 text-sm text-red-300">
+          <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 font-manrope text-sm text-red-600">
             {upgradeError}
           </p>
         )}
 
         {showFreeNearLimit && (
-          <Card className="mb-8 border-primary-500/40 bg-primary-500/10">
-            <h2 className="text-lg font-semibold text-primary-200">
+          <div className={`mb-6 ${WIZARD_CARD_CLASS} border-terracotta/30 bg-terracotta/5`}>
+            <h2 className="font-manrope text-lg font-bold text-ink">
               You&apos;re nearly at your limit — upgrade to Growth and never get cut off.
             </h2>
-            <p className="mt-2 text-sm text-slate-400">
+            <p className="mt-2 font-manrope text-sm text-warm-body">
               You&apos;ve used {stats?.totalConversations ?? 0} of {stats?.conversationLimit ?? 100} conversations this month. Upgrade in one step with Stripe — no calls required.
             </p>
-            <Button
-              variant="primary"
-              className="mt-4"
+            <button
+              type="button"
+              className={`${WIZARD_PRIMARY_BUTTON_CLASS} mt-4`}
               disabled={upgradeBusy}
               onClick={() => handleSelfServeUpgrade("growth")}
             >
               {upgradeBusy ? "Redirecting…" : "Upgrade to Growth"}
-            </Button>
-          </Card>
+            </button>
+          </div>
         )}
 
         {showGrowthNearLimit && (
-          <Card className="mb-8 border-primary-500/40 bg-primary-500/10">
-            <h2 className="text-lg font-semibold text-primary-200">
+          <div className={`mb-6 ${WIZARD_CARD_CLASS} border-terracotta/30 bg-terracotta/5`}>
+            <h2 className="font-manrope text-lg font-bold text-ink">
               You&apos;re nearly at your limit — upgrade to Pro for more headroom.
             </h2>
-            <p className="mt-2 text-sm text-slate-400">
+            <p className="mt-2 font-manrope text-sm text-warm-body">
               You&apos;ve used {stats?.totalConversations ?? 0} of {stats?.conversationLimit ?? 1000} conversations this month. Move to Pro with one click (your subscription updates in Stripe).
             </p>
-            <Button
-              variant="primary"
-              className="mt-4"
+            <button
+              type="button"
+              className={`${WIZARD_PRIMARY_BUTTON_CLASS} mt-4`}
               disabled={upgradeBusy}
               onClick={() => handleSelfServeUpgrade("pro")}
             >
               {upgradeBusy ? "Working…" : "Upgrade to Pro"}
-            </Button>
-          </Card>
+            </button>
+          </div>
         )}
 
         {limitReached && (
-          <Card className="mb-8 border-amber-500/40 bg-amber-500/10">
-            <h2 className="text-lg font-semibold text-amber-200">
+          <div className={`mb-6 ${WIZARD_CARD_CLASS} border-amber-200 bg-amber-50`}>
+            <h2 className="font-manrope text-lg font-bold text-amber-800">
               {userPlan === "free"
                 ? "You've used all your free conversations"
                 : isPaidPlan
                   ? "You've used all your conversations this month"
                   : "You've used all your free conversations"}
             </h2>
-            <p className="mt-2 text-slate-300">
+            <p className="mt-2 font-manrope text-sm text-amber-700">
               {userPlan === "free"
                 ? "Upgrade to Growth for 1,000 conversations per month. Continue with Stripe — your chat history stays put."
                 : userPlan === "growth"
@@ -373,223 +373,210 @@ function DashboardContent() {
                     : "Upgrade to a paid plan for more conversations each month."}
             </p>
             {userPlan === "free" && (
-              <Button
-                variant="primary"
-                className="mt-4"
+              <button
+                type="button"
+                className={`${WIZARD_PRIMARY_BUTTON_CLASS} mt-4`}
                 disabled={upgradeBusy}
                 onClick={() => handleSelfServeUpgrade("growth")}
               >
                 {upgradeBusy ? "Redirecting…" : "Upgrade to Growth (Stripe)"}
-              </Button>
+              </button>
             )}
             {userPlan === "growth" && (
-              <Button
-                variant="primary"
-                className="mt-4"
+              <button
+                type="button"
+                className={`${WIZARD_PRIMARY_BUTTON_CLASS} mt-4`}
                 disabled={upgradeBusy}
                 onClick={() => handleSelfServeUpgrade("pro")}
               >
                 {upgradeBusy ? "Working…" : "Upgrade to Pro (Stripe)"}
-              </Button>
+              </button>
             )}
             {(userPlan === "pro" || userPlan === "agency" || userPlan === "custom" || userPlan === "business") && (
-              <Link href="/pricing">
-                <Button variant="primary" className="mt-4">
-                  {userPlan === "pro" ? "View plans & billing" : "View plans"}
-                </Button>
+              <Link href="/pricing" className={`${WIZARD_PRIMARY_BUTTON_CLASS} mt-4`}>
+                {userPlan === "pro" ? "View plans & billing" : "View plans"}
               </Link>
             )}
-          </Card>
+          </div>
         )}
 
         {isNewUser && (
-          <section className="mb-8">
-            <Card className="border-primary-500/30 bg-primary-500/5">
-              <h2 className="text-sm font-semibold text-slate-200">
-                Integration - Install your chatbot
+          <section className="mb-6">
+            <div className={WIZARD_CARD_CLASS}>
+              <h2 className="font-manrope text-[17px] font-bold text-ink">
+                Integration: install your chatbot
               </h2>
-              <p className="mt-1 text-xs text-slate-400">
-                Paste before <code className="rounded bg-slate-800 px-1">&lt;/body&gt;</code>. The script uses{" "}
-                <code className="rounded bg-slate-800 px-1">async</code> so it does not block your page. Shopify: use the
+              <p className="mt-1.5 font-manrope text-[13px] text-warm-muted">
+                Paste before <code className="rounded bg-peach px-1.5 py-0.5 text-ink">&lt;/body&gt;</code>. The script uses{" "}
+                <code className="rounded bg-peach px-1.5 py-0.5 text-ink">async</code> so it does not block your page. Shopify: use the
                 Liquid block below to satisfy Theme Check (RemoteAsset + parser-blocking).
               </p>
-              <p className="mt-3 text-xs font-medium text-slate-300">Any site (HTML)</p>
-              <div className="mt-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-3 text-xs font-mono text-slate-100 break-all">
+              <p className="mt-4 font-manrope text-xs font-bold text-ink">Any site (HTML)</p>
+              <div className="mt-1.5 overflow-x-auto rounded-[10px] bg-ink px-4 py-3.5 font-mono text-xs text-peach">
                 {embedSnippet}
               </div>
-              <Button variant="secondary" className="mt-2" onClick={() => handleCopySnippet("embed")}>
+              <button type="button" className={`${WIZARD_OUTLINE_BUTTON_CLASS} mt-3 text-xs`} onClick={() => handleCopySnippet("embed")}>
                 {copiedKind === "embed" ? "Copied!" : "Copy snippet"}
-              </Button>
-              <p className="mt-4 text-xs font-medium text-slate-300">Shopify — theme.liquid</p>
-              <div className="mt-1 whitespace-pre-wrap rounded-xl border border-slate-700 bg-slate-900 px-3 py-3 text-xs font-mono text-slate-100 break-all">
+              </button>
+              <p className="mt-5 font-manrope text-xs font-bold text-ink">Shopify — theme.liquid</p>
+              <div className="mt-1.5 overflow-x-auto whitespace-pre-wrap rounded-[10px] bg-ink px-4 py-3.5 font-mono text-xs text-peach">
                 {shopifySnippet}
               </div>
               <div className="mt-3 flex flex-col items-start gap-3">
-                <Button variant="secondary" onClick={() => handleCopySnippet("shopify")}>
+                <button type="button" className={`${WIZARD_OUTLINE_BUTTON_CLASS} text-xs`} onClick={() => handleCopySnippet("shopify")}>
                   {copiedKind === "shopify" ? "Copied!" : "Copy Shopify snippet"}
-                </Button>
-                <div className="flex flex-wrap gap-2">
-                  <Link href="/integration">
-                    <Button variant="ghost" className="text-primary-400 hover:text-primary-300">
-                      Full integration guide
-                    </Button>
+                </button>
+                <div className="flex flex-wrap gap-5 font-manrope text-sm font-bold">
+                  <Link href="/integration" className="text-terracotta hover:text-terracotta-dark">
+                    Full integration guide
                   </Link>
-                  <Link href="/test-chatbot">
-                    <Button variant="ghost" className="text-primary-400 hover:text-primary-300">
-                      Test chatbot
-                    </Button>
+                  <Link href="/test-chatbot" className="text-terracotta hover:text-terracotta-dark">
+                    Test chatbot
                   </Link>
-                  <Link href="/bot-personality">
-                    <Button variant="ghost" className="text-primary-400 hover:text-primary-300">
-                      Change personality
-                    </Button>
+                  <Link href="/bot-personality" className="text-terracotta hover:text-terracotta-dark">
+                    Change personality
                   </Link>
                 </div>
               </div>
-            </Card>
+            </div>
           </section>
         )}
 
-        <header className="mb-8">
-          <h1 className="text-2xl font-bold text-slate-100">Main Dashboard</h1>
-          <p className="mt-1 text-slate-400">
+        <header className="mb-6">
+          <h1 className="font-display text-[28px] text-ink">Main Dashboard</h1>
+          <p className="mt-1 font-manrope text-sm text-warm-body">
             Live overview of conversations, tickets, and activity. Every conversation creates a ticket.
           </p>
         </header>
 
         {showConnectStoreBanner && connectOnboardingPath && (
-          <Card className="mb-8 border-primary-500/50 bg-gradient-to-br from-primary-500/15 to-slate-900/80">
+          <div className={`mb-6 ${WIZARD_CARD_CLASS} border-terracotta/25 bg-peach/40`}>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-slate-100">Connect your store to finish setup</h2>
-                <p className="mt-2 max-w-2xl text-sm text-slate-400">
+                <h2 className="font-manrope text-lg font-bold text-ink">Connect your store to finish setup</h2>
+                <p className="mt-2 max-w-2xl font-manrope text-sm text-warm-body">
                   You&apos;re signed in, but there&apos;s no store connected yet. Complete the short steps
                   (store type, support email, then your website) so your chatbot can go live. Click below
                   to continue from the first step you still need.
                 </p>
               </div>
-              <Link href={connectOnboardingPath} className="shrink-0">
-                <Button variant="primary" className="w-full min-w-[200px] sm:w-auto">
-                  Connect store
-                </Button>
+              <Link
+                href={connectOnboardingPath}
+                className={`${WIZARD_PRIMARY_BUTTON_CLASS} w-full min-w-[200px] shrink-0 sm:w-auto`}
+              >
+                Connect store
               </Link>
             </div>
-          </Card>
+          </div>
         )}
 
         {loading ? (
-          <p className="text-slate-400">Loading dashboard…</p>
+          <p className="font-manrope text-warm-muted">Loading dashboard…</p>
         ) : (
           <>
-            <section className="mb-8">
-              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-500">
+            <section className="mb-6">
+              <p className="mb-2.5 font-manrope text-[11px] font-extrabold uppercase tracking-wider text-warm-muted">
                 Primary metrics
-              </h2>
+              </p>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <div className={`${WIZARD_CARD_CLASS} !p-5`}>
+                  <p className="font-manrope text-[11px] font-extrabold uppercase tracking-wide text-warm-muted">
                     Conversations
                   </p>
-                  <p className="mt-2 text-2xl font-bold text-slate-100">{totalConversations}</p>
-                  <p className="mt-1 text-sm text-slate-400">
+                  <p className="mt-2 font-display text-[34px] text-ink">{totalConversations}</p>
+                  <p className="mt-1 font-manrope text-xs text-warm-muted">
                     {statsUnlimited
                       ? "Unlimited conversations this month (Agency)"
                       : `${stats?.remaining ?? 0} remaining of ${limit} (plan)`}
                   </p>
-                </Card>
-                <Card>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                </div>
+                <div className={`${WIZARD_CARD_CLASS} !p-5`}>
+                  <p className="font-manrope text-[11px] font-extrabold uppercase tracking-wide text-warm-muted">
                     Resolved
                   </p>
-                  <p className="mt-2 text-2xl font-bold text-slate-100">
+                  <p className="mt-2 font-display text-[34px] text-ink">
                     {ticketsFromApi.filter((t) => t.status === "resolved").length}
                   </p>
-                  <p className="mt-1 text-sm text-slate-400">
+                  <p className="mt-1 font-manrope text-xs text-warm-muted">
                     Tickets resolved (AI or support)
                   </p>
-                </Card>
-                <Card>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                </div>
+                <div className={`${WIZARD_CARD_CLASS} !p-5`}>
+                  <p className="font-manrope text-[11px] font-extrabold uppercase tracking-wide text-warm-muted">
                     Tickets
                   </p>
-                  <p className="mt-2 text-2xl font-bold text-slate-100">
+                  <p className="mt-2 font-display text-[34px] text-ink">
                     {ticketsFromApi.length}
                   </p>
-                  <p className="mt-1 text-sm text-slate-400">
-                    Created & resolved (all plans)
+                  <p className="mt-1 font-manrope text-xs text-warm-muted">
+                    Created &amp; resolved (all plans)
                   </p>
-                </Card>
-                <Card>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                </div>
+                <div className={`${WIZARD_CARD_CLASS} !p-5`}>
+                  <p className="font-manrope text-[11px] font-extrabold uppercase tracking-wide text-warm-muted">
                     Forwarded to email
                   </p>
-                  <p className="mt-2 text-2xl font-bold text-slate-100">
+                  <p className="mt-2 font-display text-[34px] text-ink">
                     {forwardedCountFromApi !== null ? forwardedCountFromApi : forwarded.length}
                   </p>
-                  <p className="mt-1 text-sm text-slate-400">Free: conversations forwarded to your support email</p>
-                </Card>
+                  <p className="mt-1 font-manrope text-xs text-warm-muted">Free: conversations forwarded to your support email</p>
+                </div>
               </div>
             </section>
 
-            <section className="mb-8 grid gap-6 lg:grid-cols-2">
-              <Card>
-                <h2 className="text-sm font-semibold text-slate-200">Conversations</h2>
-                <p className="mt-2 text-slate-400">
-                  Total: <span className="font-semibold text-slate-100">{totalConversations}</span>
+            <section className="mb-6 grid gap-4 lg:grid-cols-3">
+              <div className={`${WIZARD_CARD_CLASS} !p-5`}>
+                <h2 className="font-manrope text-sm font-bold text-ink">Conversations</h2>
+                <p className="mt-2 font-manrope text-sm text-warm-body">
+                  Total: <span className="font-semibold text-ink">{totalConversations}</span>
                   {statsUnlimited ? (
-                    <span className="ml-1 text-slate-400">· Unlimited monthly conversations</span>
+                    <span className="ml-1 text-warm-muted">· Unlimited monthly conversations</span>
                   ) : (
                     <>
                       {" "}
-                      / {limit}.<span className="ml-1 text-slate-400">{stats?.remaining ?? 0} left in plan.</span>
+                      / {limit}.<span className="ml-1 text-warm-muted">{stats?.remaining ?? 0} left in plan.</span>
                     </>
                   )}
                 </p>
-                <Link href="/conversations" className="mt-4 inline-block">
-                  <Button variant="ghost" className="text-primary-400 hover:text-primary-300">
-                    View conversations
-                  </Button>
+                <Link href="/conversations" className="mt-3 inline-block font-manrope text-sm font-bold text-terracotta hover:text-terracotta-dark">
+                  View conversations
                 </Link>
-              </Card>
-              <Card>
-                <h2 className="text-sm font-semibold text-slate-200">Forwarded conversations</h2>
-                <p className="mt-2 text-slate-400">
-                  <span className="font-semibold text-slate-100">
+              </div>
+              <div className={`${WIZARD_CARD_CLASS} !p-5`}>
+                <h2 className="font-manrope text-sm font-bold text-ink">Forwarded conversations</h2>
+                <p className="mt-2 font-manrope text-sm text-warm-body">
+                  <span className="font-semibold text-ink">
                     {forwardedCountFromApi !== null ? forwardedCountFromApi : forwarded.length}
                   </span>{" "}
                   forwarded to email. Add a reply and the customer sees it in chat.
                 </p>
-                <Link href="/forwarded-conversations" className="mt-4 inline-block">
-                  <Button variant="ghost" className="text-primary-400 hover:text-primary-300">
-                    View forwarded
-                  </Button>
+                <Link href="/forwarded-conversations" className="mt-3 inline-block font-manrope text-sm font-bold text-terracotta hover:text-terracotta-dark">
+                  View forwarded
                 </Link>
-              </Card>
-              <Card>
-                <h2 className="text-sm font-semibold text-slate-200">Tickets</h2>
-                <p className="mt-2 text-slate-400">
-                  <span className="font-semibold text-slate-100">{ticketsFromApi.length}</span> tickets (created & resolved).
+              </div>
+              <div className={`${WIZARD_CARD_CLASS} !p-5`}>
+                <h2 className="font-manrope text-sm font-bold text-ink">Tickets</h2>
+                <p className="mt-2 font-manrope text-sm text-warm-body">
+                  <span className="font-semibold text-ink">{ticketsFromApi.length}</span> tickets (created &amp; resolved).
                 </p>
-                <Link href="/tickets" className="mt-4 inline-block">
-                  <Button variant="ghost" className="text-primary-400 hover:text-primary-300">
-                    View all tickets
-                  </Button>
+                <Link href="/tickets" className="mt-3 inline-block font-manrope text-sm font-bold text-terracotta hover:text-terracotta-dark">
+                  View all tickets
                 </Link>
-              </Card>
+              </div>
             </section>
 
             <section id="recent" className="scroll-mt-4">
-              <Card>
-                <h2 className="text-sm font-semibold text-slate-200">Recent activity</h2>
-                <ul className="mt-4 space-y-3">
+              <div className={WIZARD_CARD_CLASS}>
+                <h2 className="font-manrope text-sm font-bold text-ink">Recent activity</h2>
+                <ul className="mt-3 space-y-2">
                   {displayActivity.length === 0 ? (
-                    <li className="rounded-lg border border-slate-700/80 bg-slate-800/40 p-4 text-center text-sm text-slate-500">
+                    <li className="rounded-lg border border-ink/[.08] bg-cream px-4 py-4 text-center font-manrope text-sm text-warm-muted">
                       {showConnectStoreBanner && connectOnboardingPath ? (
                         <>
                           No activity yet.{" "}
                           <Link
                             href={connectOnboardingPath}
-                            className="font-medium text-primary-400 underline-offset-2 hover:text-primary-300 hover:underline"
+                            className="font-semibold text-terracotta underline-offset-2 hover:text-terracotta-dark hover:underline"
                           >
                             Connect your store
                           </Link>{" "}
@@ -603,49 +590,48 @@ function DashboardContent() {
                     displayActivity.map((item) => (
                       <li
                         key={item.id}
-                        className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-slate-700/80 bg-slate-800/40 p-3 text-sm"
+                        className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-ink/[.08] bg-cream px-3 py-2.5 font-manrope text-sm"
                       >
                         <div>
                           <span
-                            className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${
+                            className={`inline-block rounded px-2 py-0.5 text-xs font-semibold ${
                               item.type === "resolved"
-                                ? "bg-emerald-500/15 text-emerald-400"
+                                ? "bg-sage/10 text-sage"
                                 : item.type === "forwarded"
-                                  ? "bg-sky-500/15 text-sky-400"
+                                  ? "bg-terracotta/10 text-terracotta"
                                   : item.type === "warning"
-                                    ? "bg-amber-500/15 text-amber-400"
-                                    : item.type === "system"
-                                      ? "bg-slate-500/15 text-slate-400"
-                                      : "bg-slate-500/15 text-slate-400"
+                                    ? "bg-amber-100 text-amber-800"
+                                    : "bg-ink/[.06] text-warm-body"
                             }`}
                           >
                             {item.type.toUpperCase()}
                           </span>
-                          <p className="mt-1 font-medium text-slate-200">{item.title}</p>
-                          <p className="text-slate-400">{item.detail}</p>
+                          <p className="mt-1 font-medium text-ink">{item.title}</p>
+                          <p className="text-warm-body">{item.detail}</p>
                         </div>
-                        <span className="shrink-0 text-xs text-slate-500">
+                        <span className="shrink-0 text-xs text-warm-muted">
                           {formatTimeAgo(item.createdAt)}
                         </span>
                       </li>
                     ))
                   )}
                 </ul>
-              </Card>
+              </div>
             </section>
           </>
         )}
 
-        <div className="mt-10 border-t border-slate-800/80 pt-6 text-center">
+        <div className="mt-8 border-t border-ink/[.08] pt-5 text-center">
           <a
             href={CUSTOM_PLAN_CALENDLY_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex rounded-md border border-slate-700 bg-slate-900/40 px-3 py-1.5 text-xs text-slate-400 transition hover:border-slate-600 hover:text-primary-400"
+            className="inline-flex rounded-full border border-ink/[.15] bg-white px-4 py-2 font-manrope text-xs font-semibold text-ink transition-colors hover:bg-ink/[.05]"
           >
             Need a custom plan? Talk to us
           </a>
         </div>
+      </div>
       </div>
     </AppShell>
   );
@@ -655,8 +641,10 @@ export default function DashboardPage() {
   return (
     <Suspense fallback={
       <AppShell>
-        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-          <p className="text-slate-400">Loading dashboard…</p>
+        <div className="min-h-full bg-cream">
+          <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+            <p className="font-manrope text-warm-muted">Loading dashboard…</p>
+          </div>
         </div>
       </AppShell>
     }>
