@@ -2,10 +2,9 @@
 
 import { FormEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import AppShell from "@/components/AppShell";
-import Card from "@/components/Card";
-import Button from "@/components/Button";
+import WizardHeader from "@/components/WizardHeader";
 import { useBot } from "@/components/BotContext";
+import { WIZARD_CARD_CLASS, WIZARD_PRIMARY_BUTTON_CLASS, WIZARD_OUTLINE_BUTTON_CLASS } from "@/lib/wizard-ui";
 
 const ACCEPT_IMAGES = "image/png,image/jpeg,image/jpg,image/webp";
 const MAX_IMAGES = 10;
@@ -108,20 +107,29 @@ export default function ManualProductsPage() {
   };
 
   return (
-    <AppShell>
+    <div className="min-h-screen bg-cream">
+      <WizardHeader />
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
         <button
           type="button"
           onClick={() => router.back()}
-          className="mb-4 text-xs font-medium text-slate-400 hover:text-slate-200"
+          className="group mb-4 inline-flex items-center gap-1.5 rounded-full py-1.5 pl-2 pr-3 font-manrope text-sm font-semibold text-warm-muted transition-colors hover:bg-ink/[.05] hover:text-terracotta"
         >
-          ← Back to training data
+          <svg
+            className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-0.5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to training data
         </button>
 
-        <Card className="space-y-4">
+        <div className={`${WIZARD_CARD_CLASS} space-y-4`}>
           <div>
-            <h1 className="text-2xl font-bold text-slate-100">Describe your products</h1>
-            <p className="mt-1 text-sm text-slate-400">
+            <h1 className="font-display text-3xl italic text-ink">Describe your products</h1>
+            <p className="mt-1.5 font-manrope text-sm text-warm-body">
               We couldn&apos;t automatically detect a product feed for this store. Tell us about
               your main products and (optionally) paste image URLs. We&apos;ll use AI to turn this
               into a product inventory for your chatbot.
@@ -130,16 +138,16 @@ export default function ManualProductsPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-300">
+              <label className="mb-1.5 block font-manrope text-sm font-semibold text-ink">
                 Product description
               </label>
-              <p className="mb-1 text-xs text-slate-500">
+              <p className="mb-1.5 font-manrope text-xs text-warm-muted">
                 In a few sentences or bullet points, describe what you sell and your key products.
                 For example: &quot;We sell custom gaming PCs, mechanical keyboards, and headsets
                 aimed at competitive gamers.&quot;
               </p>
               <textarea
-                className="min-h-[140px] w-full rounded-xl border border-slate-600 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+                className="min-h-[140px] w-full rounded-[10px] border border-ink/[.15] bg-cream px-3.5 py-3 font-manrope text-sm text-ink placeholder:text-warm-muted/70 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/20"
                 placeholder="List your main products, categories, best-sellers, etc."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -147,10 +155,10 @@ export default function ManualProductsPage() {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-300">
+              <label className="mb-1.5 block font-manrope text-sm font-semibold text-ink">
                 Upload images (optional)
               </label>
-              <p className="mb-1 text-xs text-slate-500">
+              <p className="mb-1.5 font-manrope text-xs text-warm-muted">
                 PNG or JPG, up to {MAX_IMAGES} images, {MAX_FILE_MB}MB each. AI will analyze them to
                 build your product list.
               </p>
@@ -165,10 +173,10 @@ export default function ManualProductsPage() {
               />
               <label
                 htmlFor="product-images"
-                className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-slate-600 bg-slate-900/50 px-4 py-6 text-sm text-slate-400 transition hover:border-primary-500/50 hover:bg-slate-900/70 hover:text-slate-300"
+                className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-[10px] border border-dashed border-ink/[.2] bg-cream px-4 py-6 font-manrope text-sm text-warm-body transition hover:border-terracotta/50 hover:bg-white hover:text-ink"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 Choose PNG or JPG files
               </label>
@@ -177,13 +185,13 @@ export default function ManualProductsPage() {
                   {uploadedFiles.map((file, idx) => (
                     <li
                       key={`${file.name}-${idx}`}
-                      className="flex items-center justify-between rounded-lg bg-slate-900/60 px-3 py-2 text-xs text-slate-300"
+                      className="flex items-center justify-between rounded-lg border border-ink/[.08] bg-cream px-3 py-2 font-manrope text-xs text-ink"
                     >
                       <span className="truncate">{file.name}</span>
                       <button
                         type="button"
                         onClick={() => removeFile(idx)}
-                        className="ml-2 text-red-400 hover:text-red-300"
+                        className="ml-2 text-red-500 hover:text-red-600"
                         aria-label="Remove"
                       >
                         Remove
@@ -195,14 +203,14 @@ export default function ManualProductsPage() {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-300">
+              <label className="mb-1.5 block font-manrope text-sm font-semibold text-ink">
                 Or paste image URLs (optional)
               </label>
-              <p className="mb-1 text-xs text-slate-500">
+              <p className="mb-1.5 font-manrope text-xs text-warm-muted">
                 One URL per line if your product images are already hosted online.
               </p>
               <textarea
-                className="min-h-[80px] w-full rounded-xl border border-slate-600 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+                className="min-h-[80px] w-full rounded-[10px] border border-ink/[.15] bg-cream px-3.5 py-3 font-manrope text-sm text-ink placeholder:text-warm-muted/70 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/20"
                 placeholder="https://example.com/images/product-1.jpg"
                 value={imageUrls}
                 onChange={(e) => setImageUrls(e.target.value)}
@@ -210,27 +218,27 @@ export default function ManualProductsPage() {
             </div>
 
             {error && (
-              <p className="text-sm text-red-400 bg-red-950/40 border border-red-900/40 rounded-lg px-3 py-2">
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 font-manrope text-sm text-red-600">
                 {error}
               </p>
             )}
 
             <div className="flex items-center justify-end gap-3 pt-2">
-              <Button
+              <button
                 type="button"
-                variant="ghost"
                 onClick={() => router.push("/training-data")}
+                className={`${WIZARD_OUTLINE_BUTTON_CLASS} px-5 py-2.5 text-sm`}
               >
                 Cancel
-              </Button>
-              <Button type="submit" variant="primary" disabled={loading}>
-                {loading ? "Analyzing..." : "Generate product inventory"}
-              </Button>
+              </button>
+              <button type="submit" disabled={loading} className={`${WIZARD_PRIMARY_BUTTON_CLASS} px-5 py-2.5 text-sm`}>
+                {loading ? "Analyzing…" : "Generate product inventory"}
+              </button>
             </div>
           </form>
-        </Card>
+        </div>
       </div>
-    </AppShell>
+    </div>
   );
 }
 

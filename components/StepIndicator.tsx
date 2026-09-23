@@ -14,41 +14,73 @@ const STEPS = [
 export default function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 | 4 | 5 }) {
   return (
     <nav
-      className="-mx-1 flex max-w-full items-center justify-start gap-1 overflow-x-auto overflow-y-hidden px-1 py-2 pb-3 sm:mx-0 sm:justify-center sm:gap-2 sm:overflow-visible sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="-mx-1 flex max-w-full items-start justify-start overflow-x-auto overflow-y-hidden px-1 py-2 sm:mx-0 sm:justify-center sm:overflow-visible sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       aria-label="Onboarding steps"
     >
       {STEPS.map((step, idx) => {
         const isActive = step.num === currentStep;
         const isPast = step.num < currentStep;
+        const isDone = isPast;
+        const isReachable = step.num <= currentStep;
+
+        const circle = (
+          <span
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all duration-300 ${
+              isActive
+                ? "animate-plnb-step-pop scale-100 bg-terracotta text-cream shadow-[0_4px_12px_-2px_rgba(190,91,55,.5)]"
+                : isDone
+                  ? "border border-terracotta/40 bg-terracotta/10 text-terracotta"
+                  : `border border-ink/15 bg-white text-warm-muted ${isReachable ? "group-hover:border-ink/30 group-hover:text-ink" : ""}`
+            }`}
+          >
+            {isDone ? (
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            ) : (
+              step.num
+            )}
+          </span>
+        );
+        const label = (
+          <span
+            className={`hidden font-manrope text-xs sm:block ${
+              isActive ? "font-semibold text-ink" : "text-warm-muted"
+            }`}
+          >
+            {step.label}
+          </span>
+        );
+
         return (
           <Fragment key={step.num}>
-            <Link
-              href={step.path}
-              className={`group flex shrink-0 items-center gap-2 rounded-lg px-1 py-0.5 text-sm font-medium transition-colors sm:px-1.5 ${
-                isActive
-                  ? "text-primary-400"
-                  : isPast
-                    ? "text-slate-400 hover:text-slate-200"
-                    : "text-slate-500 hover:text-slate-300"
-              }`}
-              aria-current={isActive ? "step" : undefined}
-              title={`Go to: ${step.label}`}
-            >
-              <span
-                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors ${
-                  isActive
-                    ? "border-primary-500 bg-primary-500/20 text-primary-400"
-                    : isPast
-                      ? "border-slate-500 bg-slate-800 text-slate-400 group-hover:border-slate-400"
-                      : "border-slate-600 bg-transparent text-slate-500 group-hover:border-slate-500"
-                }`}
+            {isReachable ? (
+              <Link
+                href={step.path}
+                className="group flex shrink-0 flex-col items-center gap-2 px-2 text-center"
+                aria-current={isActive ? "step" : undefined}
+                title={`Go to: ${step.label}`}
               >
-                {step.num}
-              </span>
-              <span className="hidden sm:inline">{step.label}</span>
-            </Link>
+                {circle}
+                {label}
+              </Link>
+            ) : (
+              <div
+                className="flex shrink-0 cursor-not-allowed flex-col items-center gap-2 px-2 text-center"
+                title={`Finish step ${currentStep} first`}
+                aria-disabled="true"
+              >
+                {circle}
+                {label}
+              </div>
+            )}
             {idx < STEPS.length - 1 && (
-              <span className="mx-0.5 h-px w-3 shrink-0 bg-slate-600 sm:mx-1 sm:w-6" aria-hidden />
+              <span
+                className={`mt-4 h-px w-6 shrink-0 transition-colors duration-500 sm:w-16 ${
+                  step.num < currentStep ? "bg-terracotta/40" : "bg-ink/15"
+                }`}
+                aria-hidden
+              />
             )}
           </Fragment>
         );

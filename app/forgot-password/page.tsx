@@ -2,10 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
-import Button from "@/components/Button";
-import Input from "@/components/Input";
-import Card from "@/components/Card";
-import Logo from "@/components/Logo";
+import { WIZARD_CARD_CLASS, WIZARD_INPUT_CLASS, WIZARD_PRIMARY_BUTTON_CLASS } from "@/lib/wizard-ui";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -38,46 +35,59 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-black">
-      <header className="border-b border-slate-800 bg-black">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center gap-2.5 text-slate-100">
-            <Logo size="md" />
-            <span className="text-base font-semibold">Plainbot</span>
-          </Link>
-          <Link href="/login" className="text-sm text-primary-400 hover:text-primary-300">
-            Back to log in
-          </Link>
-        </div>
+    <div
+      className="flex min-h-screen flex-col bg-cream"
+      style={{
+        backgroundImage: "radial-gradient(120% 70% at 15% 0%, #F3E3D6 0%, #FBF7F2 55%)",
+      }}
+    >
+      <header className="flex items-center justify-between px-[6vw] py-[18px]">
+        <Link href="/" className="font-display text-2xl italic text-ink no-underline hover:text-ink">
+          Plainbot
+        </Link>
+        <Link href="/login" className="font-manrope text-sm font-semibold text-terracotta hover:text-terracotta-dark">
+          Back to log in
+        </Link>
       </header>
-      <main className="flex flex-1 items-start justify-center px-4 py-8 sm:items-center sm:py-12">
-        <Card className="w-full max-w-md p-6 sm:p-8">
-          <h1 className="text-2xl font-bold text-slate-100">Reset your password</h1>
-          <p className="mt-2 text-sm text-slate-400">
+      <main className="flex flex-1 items-start justify-center px-5 py-10 sm:items-center sm:py-12">
+        <div className={`w-full max-w-md ${WIZARD_CARD_CLASS} sm:p-8`}>
+          <h1 className="font-display text-3xl italic text-ink">Reset your password</h1>
+          <p className="mt-2.5 font-manrope text-sm text-warm-body">
             Enter the email for your account. If it exists, we&apos;ll send a one-time link (check spam).
           </p>
           {done ? (
-            <p className="mt-6 text-sm text-emerald-300/90">
+            <p className="mt-6 rounded-lg border border-sage/30 bg-sage/10 px-3 py-2 font-manrope text-sm text-sage">
               If an account exists for that email, we sent a reset link. You can close this tab.
             </p>
           ) : (
             <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-              <Input
-                label="Email"
-                type="email"
-                required
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              {error && <p className="text-sm text-red-400">{error}</p>}
-              <Button type="submit" variant="primary" fullWidth disabled={loading}>
+              <div>
+                <label className="mb-1.5 block font-manrope text-sm font-semibold text-ink">Email</label>
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  placeholder="name@company.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={WIZARD_INPUT_CLASS}
+                />
+              </div>
+              {error && (
+                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 font-manrope text-sm text-red-600">
+                  {error}
+                </p>
+              )}
+              <button type="submit" disabled={loading} className={`w-full ${WIZARD_PRIMARY_BUTTON_CLASS} py-3.5 text-[15px]`}>
                 {loading ? "Sending…" : "Send reset link"}
-              </Button>
+              </button>
             </form>
           )}
-        </Card>
+        </div>
       </main>
+      <footer className="py-4 text-center font-manrope text-sm text-warm-muted">
+        © {new Date().getFullYear()} Plainbot. All rights reserved.
+      </footer>
     </div>
   );
 }

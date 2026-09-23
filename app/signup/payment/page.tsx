@@ -1,11 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import Button from "@/components/Button";
-import Card from "@/components/Card";
-import Logo from "@/components/Logo";
+import WizardHeader from "@/components/WizardHeader";
+import { WIZARD_CARD_CLASS, WIZARD_PRIMARY_BUTTON_CLASS } from "@/lib/wizard-ui";
 
 const COPY: Record<string, { title: string; blurb: string; charge: string; cta: string }> = {
   growth: {
@@ -64,59 +62,51 @@ function PaymentInner() {
   };
 
   return (
-    <Card className="w-full max-w-md p-6 shadow-soft-lg sm:p-8">
+    <div className={`w-full max-w-md ${WIZARD_CARD_CLASS} sm:p-8`}>
       <div className="mb-8 text-center">
-        <h1 className="text-2xl font-bold text-slate-100">{copy.title}</h1>
-        <p className="mt-2 text-slate-400">{copy.blurb}</p>
+        <h1 className="font-display text-3xl italic text-ink">{copy.title}</h1>
+        <p className="mt-2.5 font-manrope text-sm text-warm-body">{copy.blurb}</p>
       </div>
 
-      <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-4 text-center">
-        <p className="text-sm text-slate-400">{copy.charge}</p>
+      <div className="rounded-[10px] border border-ink/[.08] bg-cream p-4 text-center">
+        <p className="font-manrope text-sm text-warm-body">{copy.charge}</p>
       </div>
 
       {error && (
-        <p className="mt-4 text-sm text-red-400 bg-red-950/40 border border-red-900/40 rounded-lg px-3 py-2">
+        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 font-manrope text-sm text-red-600">
           {error}
         </p>
       )}
 
-      <Button
+      <button
         type="button"
-        variant="primary"
-        fullWidth
-        className="mt-6"
         disabled={loading}
         onClick={handlePayWithStripe}
+        className={`mt-6 w-full ${WIZARD_PRIMARY_BUTTON_CLASS} py-3.5 text-[15px]`}
       >
         {loading ? "Redirecting…" : copy.cta}
-      </Button>
-    </Card>
+      </button>
+    </div>
   );
 }
 
 export default function SignupPaymentPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-black">
-      <header className="border-b border-slate-800 bg-black">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
-          <Link href="/" className="flex items-center gap-2.5 text-slate-100">
-            <Logo size="md" />
-            <span className="text-base font-semibold sm:text-lg">Plainbot</span>
-          </Link>
-        </div>
-      </header>
+    <div
+      className="flex min-h-screen flex-col bg-cream"
+      style={{
+        backgroundImage: "radial-gradient(120% 70% at 15% 0%, #F3E3D6 0%, #FBF7F2 55%)",
+      }}
+    >
+      <WizardHeader />
 
       <main className="flex flex-1 items-start justify-center px-4 py-8 sm:items-center sm:px-6 sm:py-12 lg:px-8">
-        <Suspense
-          fallback={
-            <p className="text-slate-400">Loading…</p>
-          }
-        >
+        <Suspense fallback={<p className="font-manrope text-sm text-warm-muted">Loading…</p>}>
           <PaymentInner />
         </Suspense>
       </main>
 
-      <footer className="py-4 text-center text-sm text-slate-500">
+      <footer className="py-4 text-center font-manrope text-sm text-warm-muted">
         © {new Date().getFullYear()} Plainbot. All rights reserved.
       </footer>
     </div>

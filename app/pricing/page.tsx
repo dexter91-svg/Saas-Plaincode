@@ -1,15 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import Button from "@/components/Button";
-import Card from "@/components/Card";
+import LandingNavbar from "@/components/LandingNavbar";
+import LandingFooter from "@/components/LandingFooter";
 
 const CheckIcon = () => (
-  <svg className="h-5 w-5 shrink-0 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-  </svg>
+  <span className="mt-0.5 flex h-[18px] w-[18px] flex-none items-center justify-center rounded-full bg-peach text-[11px] font-bold text-terracotta-dark">
+    ✓
+  </span>
 );
 
 const PLANS = [
@@ -29,7 +27,6 @@ const PLANS = [
     ],
     cta: "Start free, no card needed",
     href: "/signup?plan=free",
-    variant: "outline" as const,
     recommended: false,
   },
   {
@@ -47,7 +44,6 @@ const PLANS = [
     ],
     cta: "Get Growth",
     href: "/signup?plan=growth",
-    variant: "primary" as const,
     recommended: false,
   },
   {
@@ -65,7 +61,6 @@ const PLANS = [
     ],
     cta: "Get Pro",
     href: "/signup?plan=pro",
-    variant: "primary" as const,
     recommended: true,
   },
 ];
@@ -73,78 +68,70 @@ const PLANS = [
 export default function PricingPage() {
   return (
     <>
-      <Navbar />
-      <main className="bg-black">
-        <section className="border-b border-slate-800 bg-black px-4 py-10 sm:px-6 lg:px-8 lg:py-16">
+      <LandingNavbar />
+      <main className="bg-cream">
+        <section className="px-[6vw] py-16 lg:py-20">
           <div className="mx-auto max-w-6xl">
             <div className="text-center">
-              <h1 className="text-3xl font-bold tracking-tight text-slate-100 sm:text-4xl lg:text-5xl">
+              <h1 className="font-display text-[clamp(32px,5vw,48px)] text-ink">
                 Simple, transparent pricing
               </h1>
-              <p className="mt-4 max-w-xl mx-auto text-lg text-slate-400">
+              <p className="mx-auto mt-4 max-w-xl font-manrope text-lg text-warm-body">
                 Three plans. Pick what fits your store — upgrade or downgrade anytime.
               </p>
             </div>
 
-            <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+            <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {PLANS.map((plan) => (
-                <Card
+                <div
                   key={plan.id}
-                  className={`relative flex h-full flex-col overflow-hidden ${
-                    plan.recommended
-                      ? "ring-2 ring-primary-500 shadow-soft-lg bg-slate-800/80 border-primary-500/50"
-                      : "border-slate-700 bg-slate-800/60"
+                  className={`relative flex h-full flex-col rounded-[20px] bg-white px-8 py-9 font-manrope transition-[transform,box-shadow] duration-300 hover:-translate-y-1.5 hover:shadow-[0_24px_50px_-24px_rgba(43,34,28,.25)] ${
+                    plan.recommended ? "border-2 border-terracotta" : "border border-ink/10"
                   }`}
                 >
                   {plan.recommended && (
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary-500 to-primary-600" />
-                  )}
-                  {plan.recommended && (
-                    <div className="absolute top-4 right-4">
-                      <span className="rounded-full bg-primary-500 px-3 py-1 text-xs font-semibold text-white">
-                        Popular
-                      </span>
+                    <div className="absolute -top-[13px] right-7 rounded-full bg-terracotta px-3.5 py-[5px] text-xs font-bold text-cream">
+                      Popular
                     </div>
                   )}
-                  <div className="pt-6 pb-2">
-                    <h2 className="text-xl font-bold text-slate-100">{plan.name}</h2>
-                    <p className="mt-1 text-sm text-slate-500">{plan.tagline}</p>
-                    <div className="mt-6 flex items-baseline gap-1">
-                      <span className="text-4xl font-bold tracking-tight text-slate-100">{plan.price}</span>
-                      {plan.period && <span className="text-slate-500">{plan.period}</span>}
-                    </div>
+
+                  <h2 className="font-display text-xl text-ink">{plan.name}</h2>
+                  <p className="mt-1 font-manrope text-sm text-warm-muted">{plan.tagline}</p>
+                  <div className="mt-6 flex items-baseline gap-1.5">
+                    <span className="font-display text-[44px] leading-none text-ink">{plan.price}</span>
+                    {plan.period && <span className="text-sm text-warm-muted">{plan.period}</span>}
                   </div>
-                  <ul className="space-y-3 border-t border-slate-700 py-6">
+
+                  <div className="my-6 h-px bg-ink/[.08]" />
+
+                  <ul className="flex flex-1 flex-col gap-3.5 text-[15px] text-[#4A3F37]">
                     {plan.features.map((f) => (
-                      <li key={f} className="flex items-start gap-3 text-slate-300">
+                      <li key={f} className="flex items-start gap-2.5">
                         <CheckIcon />
                         <span>{f}</span>
                       </li>
                     ))}
                   </ul>
-                  <div className="mt-auto pt-4">
-                    <Link href={plan.href} className="block">
-                      <Button
-                        variant={plan.variant}
-                        fullWidth
-                        className={plan.recommended ? "shadow-soft" : ""}
-                      >
-                        {plan.cta}
-                      </Button>
-                    </Link>
-                  </div>
-                </Card>
+
+                  <Link
+                    href={plan.href}
+                    className={`mt-7 block rounded-full py-3 text-center text-[15px] font-bold transition-colors duration-200 ${
+                      plan.recommended
+                        ? "bg-terracotta text-cream hover:bg-terracotta-dark hover:text-cream"
+                        : "border border-ink/20 text-ink hover:border-ink"
+                    }`}
+                  >
+                    {plan.cta}
+                  </Link>
+                </div>
               ))}
             </div>
 
-            <p
-              id="agency-plan"
-              className="mx-auto mt-12 max-w-2xl text-center text-sm text-slate-500"
-            >
+            <p id="agency-plan" className="mx-auto mt-12 max-w-2xl text-center font-manrope text-sm text-warm-muted">
               Running an agency or need white-label?{" "}
               <Link
                 href="/pricing/agency"
-                className="text-primary-400 underline decoration-primary-500/40 underline-offset-4 hover:text-primary-300"
+                className="font-semibold text-terracotta underline decoration-terracotta/40 underline-offset-4 hover:text-terracotta-dark"
               >
                 See Agency plan →
               </Link>
@@ -152,7 +139,7 @@ export default function PricingPage() {
           </div>
         </section>
       </main>
-      <Footer />
+      <LandingFooter />
     </>
   );
 }

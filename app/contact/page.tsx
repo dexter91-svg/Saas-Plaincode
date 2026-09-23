@@ -1,6 +1,6 @@
 import Link from "next/link";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import LandingNavbar from "@/components/LandingNavbar";
+import LandingFooter from "@/components/LandingFooter";
 import TestimonialsSection from "@/components/TestimonialsSection";
 import type { Metadata } from "next";
 
@@ -12,19 +12,19 @@ export const metadata: Metadata = {
 export default function ContactPage() {
   return (
     <>
-      <Navbar />
-      <main className="bg-black">
-        <section className="px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
+      <LandingNavbar />
+      <main className="bg-cream">
+        <section className="px-[6vw] py-16 lg:py-20">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="text-sm font-semibold uppercase tracking-wider text-primary-400">
+            <p className="font-manrope text-sm font-bold uppercase tracking-wider text-terracotta">
               Contact
             </p>
-            <h1 className="mt-4 text-3xl font-bold text-slate-100 sm:text-4xl">
+            <h1 className="mt-4 font-display text-3xl text-ink sm:text-4xl">
               Get in touch
             </h1>
-            <p className="mt-6 text-lg text-slate-400">
+            <p className="mt-6 font-manrope text-lg text-warm-body">
               For the Agency plan or other sales questions, see{" "}
-              <Link href="/pricing/agency" className="text-primary-400 hover:text-primary-300">
+              <Link href="/pricing/agency" className="font-semibold text-terracotta hover:text-terracotta-dark">
                 Agency plan
               </Link>{" "}
               or email us from that page.
@@ -33,7 +33,7 @@ export default function ContactPage() {
         </section>
         <TestimonialsSection showHeading />
       </main>
-      <Footer />
+      <LandingFooter />
     </>
   );
 }

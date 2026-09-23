@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppShell from "@/components/AppShell";
-import Card from "@/components/Card";
-import Button from "@/components/Button";
 import StepIndicator from "@/components/StepIndicator";
+import WizardHeader from "@/components/WizardHeader";
 import { useBot, Personality } from "@/components/BotContext";
 import { useRouter } from "next/navigation";
 import { DEFAULT_WIDGET_ACCENT, normalizeWidgetAccentColor } from "@/lib/widget-color";
+import { WIZARD_INPUT_CLASS, WIZARD_PRIMARY_BUTTON_CLASS, WIZARD_CARD_CLASS } from "@/lib/wizard-ui";
 
 const PERSONALITIES: { id: Personality; title: string; description: string }[] = [
   {
@@ -119,7 +118,7 @@ export default function BotPersonalityPage() {
     } catch {
       // continue anyway
     }
-    router.push("/bot-preview");
+    router.push("/knowledge");
   };
 
   const handleLogoChange = async (file: File | null) => {
@@ -152,46 +151,22 @@ export default function BotPersonalityPage() {
   };
 
   return (
-    <AppShell>
-      <div className="mx-auto max-w-5xl space-y-8 px-4 py-10 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-cream">
+      <WizardHeader />
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
         <StepIndicator currentStep={3} />
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-primary-400">
-            Step 3: Train AI
-          </p>
-          <h1 className="mt-2 text-3xl font-bold text-slate-100">
-            Choose your bot personality
-          </h1>
-          <p className="mt-2 text-slate-400">
-            Pick how your AI assistant should speak to customers.
-          </p>
+
+        <div className="mt-8 text-center">
+          <h1 className="font-display text-3xl text-ink sm:text-4xl">How should Plainbot sound?</h1>
+          <p className="mt-2 font-manrope text-sm text-warm-body">Pick a tone. You can change this anytime in Settings.</p>
           {scrapedData && (
-            <p className="mt-1 text-xs text-slate-500">
-              Connected store:{" "}
-              <span className="text-slate-300">{scrapedData.url}</span>
+            <p className="mt-1 font-manrope text-xs text-warm-muted">
+              Connected store: <span className="text-ink">{scrapedData.url}</span>
             </p>
           )}
         </div>
 
-        <Card className="space-y-3">
-          <h2 className="text-sm font-semibold text-slate-100">Response language</h2>
-          <p className="text-xs text-slate-400">
-            The chatbot will always respond in this language.
-          </p>
-          <select
-            value={language}
-            onChange={(e) => handleLanguageChange(e.target.value)}
-            className="w-full max-w-xs rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-          >
-            {LANGUAGES.map((lang) => (
-              <option key={lang.code} value={lang.code}>
-                {lang.label}
-              </option>
-            ))}
-          </select>
-        </Card>
-
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="mt-6 space-y-3">
           {PERSONALITIES.map((p) => {
             const selected = personality === p.id;
             return (
@@ -199,131 +174,143 @@ export default function BotPersonalityPage() {
                 key={p.id}
                 type="button"
                 onClick={() => handleSelect(p.id)}
-                className="text-left"
+                className={`w-full rounded-xl px-5 py-4 text-left transition-colors ${
+                  selected
+                    ? "bg-terracotta"
+                    : "border border-terracotta/30 bg-white hover:border-terracotta/50"
+                }`}
               >
-                <Card
-                  className={`h-full transition-colors ${
-                    selected ? "border-primary-500 bg-primary-500/10" : ""
-                  }`}
-                >
-                  <h2 className="text-sm font-semibold text-slate-100">
-                    {p.title}
-                  </h2>
-                  <p className="mt-2 text-sm text-slate-400">{p.description}</p>
-                  {selected && (
-                    <p className="mt-3 text-xs font-medium text-primary-400">
-                      Selected
-                    </p>
-                  )}
-                </Card>
+                <p className={`font-manrope text-sm font-semibold ${selected ? "text-cream" : "text-terracotta"}`}>
+                  {p.title}
+                </p>
+                <p className={`mt-0.5 font-manrope text-xs ${selected ? "text-cream/80" : "text-warm-muted"}`}>
+                  {p.description}
+                </p>
               </button>
             );
           })}
         </div>
 
-        <Card className="space-y-3">
-          <h2 className="text-sm font-semibold text-slate-100">
-            AI guard rails (optional)
-          </h2>
-          <p className="text-xs text-slate-400">
-            Rules for how the AI should behave. One per line. Saved for this chatbot.
-          </p>
-          <textarea
-            value={guardRails}
-            onChange={(e) => setGuardRails(e.target.value)}
-            placeholder="e.g. Always be polite. Never share competitor prices. Keep answers under 3 sentences."
-            className="w-full min-h-[100px] rounded-lg border border-slate-600 bg-slate-900/60 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-primary-500 focus:outline-none"
-            rows={4}
-          />
-        </Card>
+        <button
+          type="button"
+          onClick={handleContinue}
+          disabled={!personality}
+          className={`${WIZARD_PRIMARY_BUTTON_CLASS} mt-6 w-full`}
+        >
+          Continue to Knowledge & memory
+        </button>
 
-        <Card className="space-y-3">
-          <h2 className="text-sm font-semibold text-slate-100">Widget colour</h2>
-          <p className="text-xs text-slate-400">
-            Colour of the floating chat button and send button in your site snippet. Choose any colour. Paid plans
-            remove &quot;Powered by Plainbot&quot; from the widget; your accent still applies on every plan.
-          </p>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-slate-300">Widget header name</p>
+        <div className="mt-12 space-y-6">
+          <h2 className="font-display text-2xl text-ink">Fine-tune your assistant</h2>
+
+          <div className={WIZARD_CARD_CLASS}>
+            <h3 className="font-manrope text-sm font-semibold text-ink">Response language</h3>
+            <p className="mt-1 font-manrope text-xs text-warm-muted">The chatbot will always respond in this language.</p>
+            <select
+              value={language}
+              onChange={(e) => handleLanguageChange(e.target.value)}
+              className={`${WIZARD_INPUT_CLASS} mt-3 max-w-xs`}
+            >
+              {LANGUAGES.map((lang) => (
+                <option key={lang.code} value={lang.code}>
+                  {lang.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className={WIZARD_CARD_CLASS}>
+            <h3 className="font-manrope text-sm font-semibold text-ink">AI guard rails (optional)</h3>
+            <p className="mt-1 font-manrope text-xs text-warm-muted">
+              Rules for how the AI should behave. One per line. Saved for this chatbot.
+            </p>
+            <textarea
+              value={guardRails}
+              onChange={(e) => setGuardRails(e.target.value)}
+              placeholder="e.g. Always be polite. Never share competitor prices. Keep answers under 3 sentences."
+              className={`${WIZARD_INPUT_CLASS} mt-3 min-h-[100px]`}
+              rows={4}
+            />
+          </div>
+
+          <div className={WIZARD_CARD_CLASS}>
+            <h3 className="font-manrope text-sm font-semibold text-ink">Widget colour</h3>
+            <p className="mt-1 font-manrope text-xs text-warm-muted">
+              Colour of the floating chat button and send button in your site snippet. Choose any colour. Paid plans
+              remove &quot;Powered by Plainbot&quot; from the widget; your accent still applies on every plan.
+            </p>
+            <div className="mt-3 grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <p className="font-manrope text-xs font-semibold text-ink">Widget header name</p>
+                <input
+                  type="text"
+                  value={widgetName}
+                  onChange={(e) => setWidgetName(e.target.value)}
+                  placeholder={scrapedData?.title || "Your store name"}
+                  className={WIZARD_INPUT_CLASS}
+                />
+                <p className="font-manrope text-[11px] text-warm-muted">
+                  This is the title customers see in the chat widget header.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="font-manrope text-xs font-semibold text-ink">Logo</p>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    onChange={(e) => handleLogoChange(e.target.files?.[0] ?? null)}
+                    className="block w-full font-manrope text-xs text-warm-body file:mr-3 file:rounded-md file:border-0 file:bg-ink/[.06] file:px-3 file:py-2 file:font-manrope file:text-xs file:font-semibold file:text-ink hover:file:bg-ink/[.1]"
+                  />
+                  {widgetLogoDataUrl ? (
+                    <img
+                      src={widgetLogoDataUrl}
+                      alt="Widget logo preview"
+                      className="h-10 w-10 rounded-md border border-ink/[.15] bg-white object-contain"
+                    />
+                  ) : null}
+                </div>
+                {logoError ? <p className="font-manrope text-xs text-red-600">{logoError}</p> : null}
+                <div className="flex items-center justify-between">
+                  <p className="font-manrope text-[11px] text-warm-muted">PNG/JPEG/WebP/SVG · under 220KB</p>
+                  {widgetLogoDataUrl ? (
+                    <button
+                      type="button"
+                      onClick={() => setWidgetLogoDataUrl(null)}
+                      className="font-manrope text-[11px] font-semibold text-warm-body hover:text-ink"
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <input
+                type="color"
+                value={normalizeWidgetAccentColor(widgetAccentColor) ?? DEFAULT_WIDGET_ACCENT}
+                onChange={(e) => setWidgetAccentColor(e.target.value)}
+                className="h-11 w-16 cursor-pointer rounded border border-ink/[.15] bg-white p-1"
+                aria-label="Widget accent colour"
+              />
               <input
                 type="text"
-                value={widgetName}
-                onChange={(e) => setWidgetName(e.target.value)}
-                placeholder={scrapedData?.title || "Your store name"}
-                className="w-full rounded-lg border border-slate-600 bg-slate-900/60 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-primary-500 focus:outline-none"
+                value={widgetAccentColor}
+                onChange={(e) => setWidgetAccentColor(e.target.value)}
+                placeholder="#f97316"
+                spellCheck={false}
+                className={`${WIZARD_INPUT_CLASS} w-40 font-mono`}
               />
-              <p className="text-[11px] text-slate-500">
-                This is the title customers see in the chat widget header.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-slate-300">Logo</p>
-              <div className="flex items-center gap-3">
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                  onChange={(e) => handleLogoChange(e.target.files?.[0] ?? null)}
-                  className="block w-full text-xs text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-slate-800 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-slate-200 hover:file:bg-slate-700"
-                />
-                {widgetLogoDataUrl ? (
-                  <img
-                    src={widgetLogoDataUrl}
-                    alt="Widget logo preview"
-                    className="h-10 w-10 rounded-md border border-slate-700 bg-slate-900 object-contain"
-                  />
-                ) : null}
-              </div>
-              {logoError ? <p className="text-xs text-red-400">{logoError}</p> : null}
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] text-slate-500">PNG/JPEG/WebP/SVG • under 220KB</p>
-                {widgetLogoDataUrl ? (
-                  <button
-                    type="button"
-                    onClick={() => setWidgetLogoDataUrl(null)}
-                    className="text-[11px] font-medium text-slate-300 hover:text-slate-100"
-                  >
-                    Remove
-                  </button>
-                ) : null}
-              </div>
             </div>
           </div>
 
-          <div className="mt-2 flex flex-wrap items-center gap-3">
-            <input
-              type="color"
-              value={normalizeWidgetAccentColor(widgetAccentColor) ?? DEFAULT_WIDGET_ACCENT}
-              onChange={(e) => setWidgetAccentColor(e.target.value)}
-              className="h-11 w-16 cursor-pointer rounded border border-slate-600 bg-slate-900 p-1"
-              aria-label="Widget accent colour"
-            />
-            <input
-              type="text"
-              value={widgetAccentColor}
-              onChange={(e) => setWidgetAccentColor(e.target.value)}
-              placeholder="#f97316"
-              spellCheck={false}
-              className="w-40 rounded-lg border border-slate-600 bg-slate-900/60 px-3 py-2 font-mono text-sm text-slate-200 placeholder:text-slate-500 focus:border-primary-500 focus:outline-none"
-            />
-          </div>
-        </Card>
-
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-slate-500">
-            You can change personality, guard raises, and widget colour later without re-scraping your website.
+          <p className="font-manrope text-xs text-warm-muted">
+            You can change personality, guard rails, and widget colour later without re-scraping your website.
           </p>
-          <Button
-            variant="outline"
-            onClick={handleContinue}
-            disabled={!personality}
-          >
-            Continue to preview
-          </Button>
         </div>
       </div>
-    </AppShell>
+    </div>
   );
 }
-

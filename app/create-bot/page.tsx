@@ -3,12 +3,16 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import AppShell from "@/components/AppShell";
-import Card from "@/components/Card";
-import Button from "@/components/Button";
-import Input from "@/components/Input";
 import StepIndicator from "@/components/StepIndicator";
+import WizardHeader from "@/components/WizardHeader";
 import { useBot } from "@/components/BotContext";
+
+const INPUT_CLASS =
+  "w-full rounded-[10px] border border-ink/[.15] bg-cream px-3.5 py-3 font-manrope text-sm text-ink placeholder:text-warm-muted/70 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/20";
+const PRIMARY_BUTTON_CLASS =
+  "inline-flex shrink-0 items-center justify-center rounded-full bg-terracotta px-5 py-3 font-manrope text-sm font-bold text-cream transition-[background-color,transform,box-shadow] duration-200 hover:-translate-y-px hover:bg-terracotta-dark hover:shadow-[0_10px_20px_-10px_rgba(190,91,55,.6)] active:scale-[.97] disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none";
+const OUTLINE_BUTTON_CLASS =
+  "inline-flex shrink-0 items-center justify-center rounded-full border border-ink/[.15] bg-white px-5 py-2.5 font-manrope text-sm font-semibold text-ink transition-colors hover:bg-ink/[.05] disabled:pointer-events-none disabled:opacity-50";
 
 type ErrorCode = "RATE_LIMIT" | "ACCESS_DENIED";
 
@@ -288,11 +292,12 @@ export default function CreateBotPage() {
 
   if (storeTypeLoading) {
     return (
-      <AppShell>
-        <div className="flex min-h-[400px] items-center justify-center">
-          <p className="text-slate-400">Loading...</p>
+      <div className="flex min-h-screen flex-col bg-cream">
+        <WizardHeader />
+        <div className="flex flex-1 items-center justify-center">
+          <p className="font-manrope text-warm-muted">Loading...</p>
         </div>
-      </AppShell>
+      </div>
     );
   }
 
@@ -300,110 +305,106 @@ export default function CreateBotPage() {
 
   if (atStoreLimit) {
     return (
-      <AppShell>
+      <div className="min-h-screen bg-cream">
+        <WizardHeader />
         <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
-          <Card className="border-amber-500/30 bg-amber-500/10 p-6">
-            <h2 className="text-lg font-semibold text-amber-200">Store limit reached</h2>
-            <p className="mt-2 text-slate-300">
-              Your plan allows a limited number of connected stores. Upgrade to add another, or select a store from the
-              dropdown in the top bar to open its dashboard.
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6">
+            <h2 className="font-manrope text-lg font-semibold text-amber-800">Store limit reached</h2>
+            <p className="mt-2 font-manrope text-sm text-amber-700">
+              Your plan allows a limited number of connected stores. Upgrade to add another, or select a store from
+              the dropdown in the top bar to open its dashboard.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
-              <Link href="/dashboard">
-                <Button variant="primary">Go to dashboard</Button>
+              <Link href="/dashboard" className={PRIMARY_BUTTON_CLASS}>
+                Go to dashboard
               </Link>
-              <Link href="/pricing">
-                <Button variant="outline">View pricing</Button>
+              <Link href="/pricing" className={OUTLINE_BUTTON_CLASS}>
+                View pricing
               </Link>
             </div>
-          </Card>
+          </div>
         </div>
-      </AppShell>
+      </div>
     );
   }
 
   return (
-    <AppShell>
+    <div className="min-h-screen bg-cream">
+      <WizardHeader />
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
         <StepIndicator currentStep={1} />
 
         <div className="mt-8">
-          <p className="text-xs font-semibold uppercase tracking-wider text-primary-400">
-            Step 1: Connect your store
-          </p>
-          <h1 className="mt-2 text-3xl font-bold text-slate-100">
+          <h1 className="font-display text-3xl text-ink sm:text-4xl">
             Connect your store
           </h1>
-          <p className="mt-2 text-slate-400">
+          <p className="mt-2 font-manrope text-sm text-warm-body">
             Enter your website URL. Our AI will learn your products and brand.
           </p>
         </div>
 
-        <Card className="mt-6 space-y-4">
+        <div className="mt-6 rounded-2xl border border-ink/[.08] bg-white p-6 shadow-[0_4px_20px_-8px_rgba(43,34,28,.08)]">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-300">
+              <label className="mb-1.5 block font-manrope text-sm font-semibold text-ink">
                 Website URL
               </label>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <Input
+                <input
                   ref={urlInputRef}
                   type="url"
                   placeholder="https://yourstore.com"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  className="flex-1"
+                  className={`${INPUT_CLASS} flex-1`}
                   inputMode="url"
                   autoCapitalize="off"
                   autoCorrect="off"
                   enterKeyHint="go"
                   spellCheck={false}
                 />
-                <Button
+                <button
                   type="submit"
                   disabled={loading}
-                  variant="primary"
-                  className="w-full shrink-0 sm:w-auto"
+                  className={`${PRIMARY_BUTTON_CLASS} w-full sm:w-auto`}
                 >
                   {loading ? "Analyzing…" : "Analyze Website"}
-                </Button>
+                </button>
               </div>
             </div>
             {error && (
-              <div className="rounded-lg border border-red-900/40 bg-red-950/40 px-3 py-3">
-                <p className="text-sm text-red-400">{error}</p>
+              <div className="animate-plnb-row-in rounded-lg border border-red-200 bg-red-50 px-3 py-3">
+                <p className="font-manrope text-sm text-red-600">{error}</p>
                 {errorCode === "RATE_LIMIT" && (
-                  <p className="mt-2 text-xs text-red-300/90">
+                  <p className="mt-2 font-manrope text-xs text-red-500">
                     Waiting 1–2 minutes then retrying often helps.
                   </p>
                 )}
                 {errorCode === "ACCESS_DENIED" && (
-                  <p className="mt-2 text-xs text-red-300/90">
+                  <p className="mt-2 font-manrope text-xs text-red-500">
                     Use another store URL; this one blocks automated access.
                   </p>
                 )}
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <Button
+                  <button
                     type="button"
-                    variant="outline"
-                    className="border-red-800 text-red-300 hover:bg-red-900/40"
+                    className="inline-flex items-center justify-center rounded-full border border-red-300 px-4 py-2 font-manrope text-sm font-semibold text-red-600 transition-colors hover:bg-red-100"
                     onClick={() => handleSubmit({ preventDefault: () => {} } as FormEvent)}
                   >
                     Try again
-                  </Button>
-                  <Button
+                  </button>
+                  <button
                     type="button"
-                    variant="secondary"
+                    className={OUTLINE_BUTTON_CLASS}
                     onClick={() => continueWithoutCrawl(url)}
                     disabled={loading}
                   >
                     Continue without crawl
-                  </Button>
+                  </button>
                   {errorCode === "ACCESS_DENIED" && (
-                    <Button
+                    <button
                       type="button"
-                      variant="ghost"
-                      className="text-red-300 hover:bg-red-900/40"
+                      className="inline-flex items-center justify-center rounded-full px-4 py-2 font-manrope text-sm font-semibold text-red-600 transition-colors hover:bg-red-100"
                       onClick={() => {
                         setError(null);
                         setErrorCode(null);
@@ -412,42 +413,42 @@ export default function CreateBotPage() {
                       }}
                     >
                       Try a different URL
-                    </Button>
+                    </button>
                   )}
                 </div>
               </div>
             )}
           </form>
-        </Card>
+        </div>
 
         {loading && (
-          <Card className="mt-6 space-y-5">
+          <div className="animate-plnb-row-in mt-6 space-y-5 rounded-2xl border border-ink/[.08] bg-white p-6 shadow-[0_4px_20px_-8px_rgba(43,34,28,.08)]">
             {/* Header */}
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-500/20 text-primary-400">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
                   <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
                   </svg>
                 </span>
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-200">Analysing your store</h3>
-                  <p className="text-xs text-slate-500">This usually takes 10–30 seconds</p>
+                  <h3 className="font-manrope text-sm font-semibold text-ink">Analysing your store</h3>
+                  <p className="font-manrope text-xs text-warm-muted">This usually takes 10–30 seconds</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500">{progressPercent}%</span>
-                <span className="rounded-md bg-slate-800 px-2 py-1 text-xs font-mono text-slate-400">
+                <span className="font-manrope text-xs text-warm-muted">{progressPercent}%</span>
+                <span className="rounded-md bg-ink/[.05] px-2 py-1 font-mono text-xs text-warm-body">
                   {elapsedSeconds}s
                 </span>
               </div>
             </div>
 
             {/* Progress bar */}
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-terracotta/15">
               <div
-                className="h-full rounded-full bg-primary-500 transition-all duration-700 ease-out"
+                className="h-full rounded-full bg-terracotta transition-all duration-700 ease-out"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
@@ -465,56 +466,71 @@ export default function CreateBotPage() {
 
                 if (isActive) {
                   return (
-                    <li key={key} className="rounded-lg border border-primary-500/25 bg-primary-500/8 px-3.5 py-3">
+                    <li
+                      key={key}
+                      className="animate-plnb-row-in rounded-lg border border-terracotta/25 bg-terracotta/[.06] px-3.5 py-3"
+                    >
                       <div className="flex items-center gap-2.5">
-                        <span className="inline-flex h-2 w-2 shrink-0 rounded-full bg-primary-400 animate-pulse" />
-                        <span className="text-sm font-semibold text-primary-300">{label}</span>
+                        <span className="inline-flex h-2 w-2 shrink-0 animate-pulse rounded-full bg-terracotta" />
+                        <span className="font-manrope text-sm font-semibold text-terracotta">{label}</span>
                       </div>
-                      <p className="mt-1.5 pl-4.5 text-xs leading-relaxed text-slate-400">{detail}</p>
+                      <p className="mt-1.5 pl-4.5 font-manrope text-xs leading-relaxed text-warm-body">{detail}</p>
                     </li>
                   );
                 }
 
                 if (isDone) {
                   return (
-                    <li key={key} className="flex items-center justify-between gap-2 rounded-lg bg-emerald-500/5 px-3.5 py-2.5">
+                    <li
+                      key={key}
+                      className="animate-plnb-row-in flex items-center justify-between gap-2 rounded-lg bg-sage/[.08] px-3.5 py-2.5"
+                    >
                       <div className="flex items-center gap-2.5">
-                        <svg className="h-4 w-4 shrink-0 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg
+                          className="animate-plnb-step-pop h-4 w-4 shrink-0 text-sage"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                         </svg>
-                        <span className="text-sm text-slate-300">{label}</span>
+                        <span className="font-manrope text-sm text-ink">{label}</span>
                       </div>
-                      <span className="shrink-0 text-xs text-emerald-600">{done}</span>
+                      <span className="shrink-0 font-manrope text-xs text-sage">{done}</span>
                     </li>
                   );
                 }
 
                 return (
-                  <li key={key} className={`flex items-center gap-2.5 rounded-lg px-3.5 py-2.5 ${isPending ? "opacity-40" : ""}`}>
-                    <span className="inline-flex h-2 w-2 shrink-0 rounded-full bg-slate-600" />
-                    <span className="text-sm text-slate-500">{label}</span>
+                  <li
+                    key={key}
+                    className={`flex items-center gap-2.5 rounded-lg px-3.5 py-2.5 transition-opacity duration-300 ${isPending ? "opacity-40" : ""}`}
+                  >
+                    <span className="inline-flex h-2 w-2 shrink-0 rounded-full bg-ink/20" />
+                    <span className="font-manrope text-sm text-warm-muted">{label}</span>
                   </li>
                 );
               })}
             </ul>
-          </Card>
+          </div>
         )}
         {scrapedData && !loading && (
-          <Card className="mt-6">
-            <p className="text-slate-400">
+          <div className="animate-plnb-row-in mt-6 rounded-2xl border border-ink/[.08] bg-white p-6 shadow-[0_4px_20px_-8px_rgba(43,34,28,.08)]">
+            <p className="font-manrope text-sm text-warm-body">
               Store already connected:{" "}
-              <span className="font-medium text-slate-200">{scrapedData.url}</span>
+              <span className="font-semibold text-ink">{scrapedData.url}</span>
             </p>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 font-manrope text-sm text-warm-muted">
               {scrapedData.products?.length ?? 0} products detected. After you finish setup, this
               content is saved with your chatbot on the server.
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
-              <Button variant="primary" onClick={() => router.push("/training-data")}>
+              <button type="button" className={PRIMARY_BUTTON_CLASS} onClick={() => router.push("/training-data")}>
                 View website feeds
-              </Button>
-              <Button
-                variant="outline"
+              </button>
+              <button
+                type="button"
+                className={OUTLINE_BUTTON_CLASS}
                 onClick={() => {
                   setUrl("");
                   setError(null);
@@ -523,15 +539,15 @@ export default function CreateBotPage() {
                 }}
               >
                 Analyze another URL
-              </Button>
+              </button>
             </div>
-          </Card>
+          </div>
         )}
 
-        <p className="mt-6 text-center text-xs text-slate-500">
+        <p className="mt-6 text-center font-manrope text-xs text-warm-muted">
           Works with Shopify, WooCommerce, BigCommerce, Wix, and custom stores.
         </p>
       </div>
-    </AppShell>
+    </div>
   );
 }

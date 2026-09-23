@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
-import Card from "@/components/Card";
-import Button from "@/components/Button";
+import { WIZARD_CARD_CLASS, WIZARD_INPUT_CLASS, WIZARD_OUTLINE_BUTTON_CLASS, WIZARD_PRIMARY_BUTTON_CLASS } from "@/lib/wizard-ui";
 
 type UserRow = {
   id: string;
@@ -77,103 +76,105 @@ export default function AdminPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-100">Admin Panel</h1>
-            <p className="mt-1 text-slate-400">Manage user accounts and allocate complimentary credits.</p>
+      <div className="min-h-full bg-cream">
+        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 className="font-display text-[28px] text-ink">Admin Panel</h1>
+              <p className="mt-1.5 font-manrope text-sm text-warm-body">Manage user accounts and allocate complimentary credits.</p>
+            </div>
+            <button type="button" onClick={fetchUsers} disabled={loading} className={`${WIZARD_OUTLINE_BUTTON_CLASS} px-5 py-2.5 text-sm`}>
+              Refresh
+            </button>
           </div>
-          <Button variant="outline" onClick={fetchUsers} disabled={loading}>
-            Refresh
-          </Button>
-        </div>
 
-        {error && (
-          <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">
-            {success}
-          </div>
-        )}
-
-        <div className="mt-6 flex items-center">
-          <input
-            type="text"
-            placeholder="Search users by email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full max-w-md rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-primary-500 focus:outline-none"
-          />
-        </div>
-
-        <Card className="mt-6 p-0 overflow-hidden">
-          {loading ? (
-            <p className="p-8 text-center text-slate-400">Loading users...</p>
-          ) : filtered.length === 0 ? (
-            <p className="p-8 text-center text-slate-500">No users found.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-700/80 text-sm">
-                <thead className="bg-slate-900/80">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-slate-500">User</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-slate-500">Plan</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-slate-500">Base Limit</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-slate-500">Bonus Credits</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-slate-500">Total Limit</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-slate-500">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-700/80 bg-slate-900/40">
-                  {filtered.map((u) => {
-                    const baseLimit = u.conversationLimit ?? 100;
-                    const bonus = u.complimentaryCredits;
-                    const totalLimit = u.conversationLimit === null ? "Unlimited" : (baseLimit + bonus).toLocaleString();
-
-                    return (
-                      <tr key={u.id} className="hover:bg-slate-800/20">
-                        <td className="px-6 py-4">
-                          <div className="font-medium text-slate-200">{u.name || "—"}</div>
-                          <div className="text-xs text-slate-500">{u.email}</div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium capitalize ${
-                            u.plan === "free" ? "bg-slate-800 text-slate-400" : "bg-emerald-500/15 text-emerald-400"
-                          }`}>
-                            {u.plan}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-slate-300">
-                          {u.conversationLimit === null ? "Unlimited" : baseLimit.toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 text-primary-400 font-mono">
-                          +{bonus.toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 text-slate-100 font-semibold">
-                          {totalLimit}
-                        </td>
-                        <td className="px-6 py-4">
-                          <Button
-                            variant="primary"
-                            className="px-3 py-1.5 text-xs"
-                            disabled={updatingId === u.id}
-                            onClick={() => handleAddCredits(u.id, u.email)}
-                          >
-                            {updatingId === u.id ? "Adding..." : "+1,000 Credits"}
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          {error && (
+            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 font-manrope text-sm text-red-600">
+              {error}
             </div>
           )}
-        </Card>
+
+          {success && (
+            <div className="mt-4 rounded-lg border border-sage/30 bg-sage/10 px-4 py-3 font-manrope text-sm text-sage">
+              {success}
+            </div>
+          )}
+
+          <div className="mt-6 flex items-center">
+            <input
+              type="text"
+              placeholder="Search users by email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className={`w-full max-w-md ${WIZARD_INPUT_CLASS}`}
+            />
+          </div>
+
+          <div className={`mt-6 ${WIZARD_CARD_CLASS} !p-0 overflow-hidden`}>
+            {loading ? (
+              <p className="p-8 text-center font-manrope text-sm text-warm-muted">Loading users…</p>
+            ) : filtered.length === 0 ? (
+              <p className="p-8 text-center font-manrope text-sm text-warm-muted">No users found.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-ink/[.08] text-sm">
+                  <thead className="bg-cream-alt">
+                    <tr>
+                      <th className="px-6 py-3 text-left font-manrope text-xs font-bold uppercase tracking-wide text-warm-muted">User</th>
+                      <th className="px-6 py-3 text-left font-manrope text-xs font-bold uppercase tracking-wide text-warm-muted">Plan</th>
+                      <th className="px-6 py-3 text-left font-manrope text-xs font-bold uppercase tracking-wide text-warm-muted">Base Limit</th>
+                      <th className="px-6 py-3 text-left font-manrope text-xs font-bold uppercase tracking-wide text-warm-muted">Bonus Credits</th>
+                      <th className="px-6 py-3 text-left font-manrope text-xs font-bold uppercase tracking-wide text-warm-muted">Total Limit</th>
+                      <th className="px-6 py-3 text-left font-manrope text-xs font-bold uppercase tracking-wide text-warm-muted">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-ink/[.08]">
+                    {filtered.map((u) => {
+                      const baseLimit = u.conversationLimit ?? 100;
+                      const bonus = u.complimentaryCredits;
+                      const totalLimit = u.conversationLimit === null ? "Unlimited" : (baseLimit + bonus).toLocaleString();
+
+                      return (
+                        <tr key={u.id} className="hover:bg-cream/60">
+                          <td className="px-6 py-4">
+                            <div className="font-manrope font-semibold text-ink">{u.name || "—"}</div>
+                            <div className="font-manrope text-xs text-warm-muted">{u.email}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-block rounded-full px-2.5 py-0.5 font-manrope text-xs font-bold capitalize ${
+                              u.plan === "free" ? "bg-ink/[.06] text-warm-body" : "bg-sage/10 text-sage"
+                            }`}>
+                              {u.plan}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 font-manrope text-warm-body">
+                            {u.conversationLimit === null ? "Unlimited" : baseLimit.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 font-mono text-terracotta">
+                            +{bonus.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 font-manrope font-semibold text-ink">
+                            {totalLimit}
+                          </td>
+                          <td className="px-6 py-4">
+                            <button
+                              type="button"
+                              disabled={updatingId === u.id}
+                              onClick={() => handleAddCredits(u.id, u.email)}
+                              className={`${WIZARD_PRIMARY_BUTTON_CLASS} px-3.5 py-1.5 text-xs`}
+                            >
+                              {updatingId === u.id ? "Adding…" : "+1,000 Credits"}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </AppShell>
   );

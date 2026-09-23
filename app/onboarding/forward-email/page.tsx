@@ -1,11 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import Button from "@/components/Button";
-import Card from "@/components/Card";
-import Logo from "@/components/Logo";
+import WizardHeader from "@/components/WizardHeader";
+import { WIZARD_CARD_CLASS, WIZARD_INPUT_CLASS, WIZARD_PRIMARY_BUTTON_CLASS } from "@/lib/wizard-ui";
 
 export default function ForwardEmailPage() {
   const router = useRouter();
@@ -57,42 +55,38 @@ export default function ForwardEmailPage() {
     }
   };
 
+  const gradientBg = {
+    backgroundImage: "radial-gradient(120% 70% at 15% 0%, #F3E3D6 0%, #FBF7F2 55%)",
+  };
+
   if (checking) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black">
-        <p className="text-slate-400">Loading...</p>
+      <div className="flex min-h-screen items-center justify-center bg-cream" style={gradientBg}>
+        <p className="font-manrope text-sm text-warm-muted">Loading…</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-black">
-      <header className="border-b border-slate-800 bg-black">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
-          <Link href="/" className="flex items-center gap-2.5 text-slate-100">
-            <Logo size="md" />
-            <span className="text-base font-semibold sm:text-lg">
-              Plainbot
-            </span>
-          </Link>
-        </div>
-      </header>
+    <div className="flex min-h-screen flex-col bg-cream" style={gradientBg}>
+      <WizardHeader />
 
       <main className="flex flex-1 items-start justify-center px-4 py-8 sm:items-center sm:px-6 sm:py-12 lg:px-8">
         <div className="w-full max-w-md pb-8">
           <div className="mb-8 text-center">
-            <h1 className="text-2xl font-bold text-slate-100 sm:text-3xl">
+            <h1 className="font-display text-3xl italic text-ink sm:text-4xl">
               Where should we send forwarded conversations?
             </h1>
-            <p className="mt-2 text-slate-400">
-              When the AI can&apos;t help (e.g. order cancellation), we&apos;ll forward the full conversation to this email. You can reply and the customer will see it in chat.
+            <p className="mt-2.5 font-manrope text-sm text-warm-body">
+              When the AI can&apos;t help (e.g. order cancellation), we&apos;ll forward the full conversation to
+              this email. You can reply and the customer will see it in chat.
             </p>
           </div>
 
-          <Card className="p-6">
+          <div className={WIZARD_CARD_CLASS}>
             <form onSubmit={handleSubmit} className="space-y-4">
               <label className="block">
-                <span className="block text-sm font-medium text-slate-300">Support email</span>
+                <span className="block font-manrope text-sm font-semibold text-ink">Support email</span>
                 <input
                   type="email"
                   value={email}
@@ -101,27 +95,22 @@ export default function ForwardEmailPage() {
                   autoComplete="email"
                   enterKeyHint="done"
                   inputMode="email"
-                  className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-3 text-base text-slate-100 placeholder:text-slate-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+                  className={`mt-1.5 ${WIZARD_INPUT_CLASS}`}
                   required
                 />
               </label>
               {error && (
-                <p className="text-sm text-red-400 bg-red-950/40 border border-red-900/40 rounded-lg px-3 py-2">
+                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 font-manrope text-sm text-red-600">
                   {error}
                 </p>
               )}
-              <Button
-                type="submit"
-                variant="primary"
-                fullWidth
-                disabled={loading}
-              >
-                {loading ? "Saving..." : "Continue"}
-              </Button>
+              <button type="submit" disabled={loading} className={`w-full ${WIZARD_PRIMARY_BUTTON_CLASS} py-3.5 text-[15px]`}>
+                {loading ? "Saving…" : "Continue"}
+              </button>
             </form>
-          </Card>
+          </div>
 
-          <p className="mt-4 text-center text-sm text-slate-500">
+          <p className="mt-4 text-center font-manrope text-sm text-warm-muted">
             You can change this later in Settings.
           </p>
         </div>

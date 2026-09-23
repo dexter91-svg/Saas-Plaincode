@@ -3,10 +3,6 @@
 import Link from "next/link";
 import { FormEvent, useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Button from "@/components/Button";
-import Input from "@/components/Input";
-import Card from "@/components/Card";
-import Logo from "@/components/Logo";
 import { resetBotStorageForNewAccount } from "@/lib/bot-local-storage";
 
 function LoginForm() {
@@ -14,6 +10,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [resetBanner, setResetBanner] = useState(false);
@@ -74,114 +71,170 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-black">
-      <header className="border-b border-slate-800 bg-black">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <Link href="/" className="flex shrink-0 items-center gap-2.5 text-slate-100">
-            <Logo size="md" />
-            <span className="text-base font-semibold sm:text-lg">
-              Plainbot
-            </span>
+    <div
+      className="flex min-h-screen flex-col bg-cream"
+      style={{
+        backgroundImage:
+          "radial-gradient(120% 70% at 15% 0%, #F3E3D6 0%, #FBF7F2 55%)",
+      }}
+    >
+      <header className="flex items-center justify-between px-[6vw] py-[18px]">
+        <Link href="/" className="font-display text-2xl italic text-ink no-underline hover:text-ink">
+          Plainbot
+        </Link>
+        <p className="font-manrope text-sm text-warm-muted">
+          Don&apos;t have an account?{" "}
+          <Link href="/signup?plan=free" className="font-semibold text-terracotta hover:text-terracotta-dark">
+            Sign up
           </Link>
-          <p className="text-sm text-slate-400 sm:text-right">
-            Don&apos;t have an account?{" "}
-            <Link href="/signup?plan=free" className="font-medium text-primary-400 hover:text-primary-300">
-              Sign up
-            </Link>
-          </p>
-        </div>
+        </p>
       </header>
 
-      <main className="flex flex-1 items-start justify-center px-4 py-8 sm:items-center sm:px-6 sm:py-12 lg:px-8">
-        <Card className="w-full max-w-md p-6 shadow-soft-lg sm:p-8">
-          <div className="mb-8 text-center">
-            <Link href="/" className="inline-flex items-center gap-2 text-slate-100">
-              <Logo size="sm" />
-              <span className="font-semibold">Plainbot</span>
-            </Link>
-            <h1 className="mt-6 text-2xl font-bold text-slate-100">Welcome back</h1>
-            <p className="mt-2 text-slate-400">
+      <main className="mx-auto grid w-full max-w-[1400px] flex-1 lg:grid-cols-2">
+        <div className="hidden flex-col items-center justify-center px-10 py-16 lg:flex">
+          <div className="w-full max-w-[420px]">
+            <h2 className="font-display text-4xl italic leading-[1.2] text-ink">
+              Good to see you again.
+            </h2>
+            <p className="mb-7 mt-4 font-manrope text-[15px] leading-6 text-warm-body">
+              Log back in to keep your inbox on autopilot.
+            </p>
+            <div className="flex flex-col gap-4">
+              {[
+                "Your dashboard, exactly as you left it",
+                "Every conversation in one place",
+                "Human escalation is always one click away",
+              ].map((item) => (
+                <div key={item} className="flex items-start gap-3">
+                  <div className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-white text-xs font-bold text-terracotta shadow-[0_2px_8px_rgba(43,34,28,.08)]">
+                    ✓
+                  </div>
+                  <span className="font-manrope text-sm text-[#4A3F37]">{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center px-5 py-14 lg:px-10">
+          <div className="w-full max-w-[420px]">
+            <div className="mb-6">
+            <h1 className="font-display text-3xl italic text-ink">Welcome back</h1>
+            <p className="mt-2.5 font-manrope text-sm text-warm-body">
               Enter your credentials to access your dashboard.
             </p>
           </div>
 
           {resetBanner && (
-            <p className="mb-4 text-sm text-emerald-300/90 bg-emerald-950/30 border border-emerald-800/40 rounded-lg px-3 py-2">
+            <p className="mb-4 rounded-lg border border-sage/30 bg-sage/10 px-3 py-2 font-manrope text-sm text-sage">
               Your password was updated. Log in with your new password.
             </p>
           )}
           <form className="space-y-4" onSubmit={handleSubmit}>
-            <Input
-              label="Email Address"
-              type="email"
-              placeholder="name@company.com"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+            <div>
+              <label className="mb-1.5 block font-manrope text-sm font-semibold text-ink">
+                Email Address
+              </label>
+              <input
+                type="email"
+                placeholder="name@company.com"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={INPUT_CLASS}
+              />
+            </div>
             <div>
               <div className="mb-1.5 flex items-center justify-between">
-                <label className="text-sm font-medium text-slate-300">Password</label>
+                <label className="font-manrope text-sm font-semibold text-ink">Password</label>
                 <Link
                   href="/forgot-password"
-                  className="text-sm text-primary-400 hover:text-primary-300"
+                  className="font-manrope text-sm text-terracotta hover:text-terracotta-dark"
                 >
                   Forgot password?
                 </Link>
               </div>
-              <Input
-                type="password"
-                placeholder="••••••••"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={`${INPUT_CLASS} pr-11`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((p) => !p)}
+                  className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-warm-muted hover:bg-ink/[.05] hover:text-ink"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                    </svg>
+                  ) : (
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
             {error && (
-              <p className="text-sm text-red-400 bg-red-950/40 border border-red-900/40 rounded-lg px-3 py-2">
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 font-manrope text-sm text-red-600">
                 {error}
               </p>
             )}
-            <Button type="submit" variant="primary" fullWidth disabled={loading}>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-full bg-terracotta py-3.5 font-manrope text-[15px] font-bold text-cream transition-[background-color,transform,box-shadow] duration-200 hover:-translate-y-px hover:bg-terracotta-dark hover:shadow-[0_10px_20px_-10px_rgba(190,91,55,.6)] active:scale-[.97] disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none"
+            >
               {loading ? "Logging in..." : "Log in"}
-            </Button>
+            </button>
           </form>
 
           <p className="mt-4 text-center">
             <button
               type="button"
               onClick={handleClearData}
-              className="text-xs text-slate-500 hover:text-slate-400 underline"
+              className="font-manrope text-xs text-warm-muted underline hover:text-ink"
             >
               Clear saved data
             </button>
           </p>
-          <p className="mt-2 text-center text-xs text-slate-500">
+          <p className="mt-2 text-center font-manrope text-xs text-warm-muted">
             By logging in, you agree to our{" "}
-            <Link href="/terms" className="text-primary-400 hover:underline">
+            <Link href="/terms" className="text-terracotta hover:underline">
               Terms of Service
             </Link>{" "}
             and{" "}
-            <Link href="/privacy" className="text-primary-400 hover:underline">
+            <Link href="/privacy" className="text-terracotta hover:underline">
               Privacy Policy
             </Link>
             .
           </p>
-        </Card>
+        </div>
+        </div>
       </main>
 
-      <footer className="py-4 text-center text-sm text-slate-500">
+      <footer className="py-4 text-center font-manrope text-sm text-warm-muted">
         © {new Date().getFullYear()} Plainbot. All rights reserved.
       </footer>
     </div>
   );
 }
 
+const INPUT_CLASS =
+  "w-full rounded-[10px] border border-ink/[.15] bg-white px-3.5 py-3 font-manrope text-sm text-ink placeholder:text-warm-muted/70 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/20";
+
 export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-black text-slate-400">Loading…</div>
+        <div className="flex min-h-screen items-center justify-center bg-cream text-warm-muted">Loading…</div>
       }
     >
       <LoginForm />

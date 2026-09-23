@@ -3,9 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
-import Card from "@/components/Card";
-import Button from "@/components/Button";
 import { useBot } from "@/components/BotContext";
+import { WIZARD_CARD_CLASS, WIZARD_OUTLINE_BUTTON_CLASS } from "@/lib/wizard-ui";
 
 type TicketRow = {
   id: string;
@@ -28,12 +27,12 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const TYPE_STYLES: Record<string, string> = {
-  ai_resolved: "bg-emerald-500/15 text-emerald-400",
-  forwarded_email: "bg-sky-500/15 text-sky-400",
-  forwarded_human: "bg-amber-500/15 text-amber-400",
-  database_check: "bg-primary-500/15 text-primary-400",
-  escalated: "bg-rose-500/15 text-rose-400",
-  other: "bg-slate-500/15 text-slate-400",
+  ai_resolved: "bg-sage/10 text-sage",
+  forwarded_email: "bg-blue-100 text-blue-700",
+  forwarded_human: "bg-amber-100 text-amber-700",
+  database_check: "bg-terracotta/10 text-terracotta",
+  escalated: "bg-red-100 text-red-600",
+  other: "bg-ink/[.06] text-warm-body",
 };
 
 function formatTimeAgo(ms: number): string {
@@ -66,72 +65,74 @@ export default function TicketsPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <h1 className="text-2xl font-bold text-slate-100">Tickets</h1>
-        <p className="mt-1 text-slate-400">
-          Every conversation creates a ticket. Ticket created → AI or support replies → Ticket resolved.
-        </p>
+      <div className="min-h-full bg-cream">
+        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+          <h1 className="font-display text-[28px] text-ink">Tickets</h1>
+          <p className="mt-1.5 font-manrope text-sm text-warm-body">
+            Every conversation creates a ticket. Ticket created → AI or support replies → ticket resolved.
+          </p>
 
-        {loading ? (
-          <p className="mt-6 text-slate-400">Loading tickets…</p>
-        ) : tickets.length === 0 ? (
-          <Card className="mt-6">
-            <p className="text-center text-slate-500">
-              No tickets yet. Chat with your bot or forward conversations to create tickets.
-            </p>
-            <div className="mt-4 flex justify-center gap-2">
-              <Link href="/test-chatbot">
-                <Button variant="outline">Test chatbot</Button>
-              </Link>
-              <Link href="/conversations">
-                <Button variant="ghost">View conversations</Button>
-              </Link>
+          {loading ? (
+            <p className="mt-6 font-manrope text-sm text-warm-muted">Loading tickets…</p>
+          ) : tickets.length === 0 ? (
+            <div className={`mt-6 ${WIZARD_CARD_CLASS} !p-11 text-center`}>
+              <p className="font-manrope text-sm text-warm-muted">
+                No tickets yet. Chat with your bot or forward conversations to create tickets.
+              </p>
+              <div className="mt-5 flex flex-wrap justify-center gap-3.5">
+                <Link href="/test-chatbot" className={`${WIZARD_OUTLINE_BUTTON_CLASS} border-terracotta text-terracotta hover:bg-terracotta/5`}>
+                  Test chatbot
+                </Link>
+                <Link href="/conversations" className={WIZARD_OUTLINE_BUTTON_CLASS}>
+                  View conversations
+                </Link>
+              </div>
             </div>
-          </Card>
-        ) : (
-          <Card className="mt-6">
-            <ul className="divide-y divide-slate-700/80">
-              {tickets
-                .slice()
-                .sort((a, b) => b.createdAt - a.createdAt)
-                .map((ticket) => (
-                  <li key={ticket.id} className="py-4 first:pt-0 last:pb-0">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-mono font-semibold text-primary-400">
-                            #{ticket.ticketRef}
-                          </span>
-                          <span
-                            className={`rounded px-2 py-0.5 text-xs font-medium ${
-                              ticket.status === "resolved" ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-400"
-                            }`}
-                          >
-                            {ticket.status === "resolved" ? "Resolved" : ticket.status}
-                          </span>
-                          <span
-                            className={`rounded px-2 py-0.5 text-xs font-medium ${
-                              TYPE_STYLES[ticket.type] ?? TYPE_STYLES.other
-                            }`}
-                          >
-                            {TYPE_LABELS[ticket.type] ?? ticket.type}
-                          </span>
-                          <span className="text-xs text-slate-500">
-                            {formatTimeAgo(ticket.createdAt)}
-                          </span>
+          ) : (
+            <div className={`mt-6 ${WIZARD_CARD_CLASS}`}>
+              <ul className="divide-y divide-ink/[.08]">
+                {tickets
+                  .slice()
+                  .sort((a, b) => b.createdAt - a.createdAt)
+                  .map((ticket) => (
+                    <li key={ticket.id} className="py-4 first:pt-0 last:pb-0">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-sm font-bold text-terracotta">
+                              #{ticket.ticketRef}
+                            </span>
+                            <span
+                              className={`rounded-full px-2.5 py-0.5 font-manrope text-xs font-bold ${
+                                ticket.status === "resolved" ? "bg-sage/10 text-sage" : "bg-amber-100 text-amber-700"
+                              }`}
+                            >
+                              {ticket.status === "resolved" ? "Resolved" : ticket.status}
+                            </span>
+                            <span
+                              className={`rounded-full px-2.5 py-0.5 font-manrope text-xs font-bold ${
+                                TYPE_STYLES[ticket.type] ?? TYPE_STYLES.other
+                              }`}
+                            >
+                              {TYPE_LABELS[ticket.type] ?? ticket.type}
+                            </span>
+                            <span className="font-manrope text-xs text-warm-muted">
+                              {formatTimeAgo(ticket.createdAt)}
+                            </span>
+                          </div>
+                          <p className="mt-1.5 font-manrope text-sm font-semibold text-ink">{ticket.customer}</p>
+                          <p className="mt-0.5 font-manrope text-sm text-warm-body">{ticket.queryPreview}</p>
+                          {ticket.outcome && (
+                            <p className="mt-1 font-manrope text-xs text-warm-muted">Outcome: {ticket.outcome}</p>
+                          )}
                         </div>
-                        <p className="mt-1 font-medium text-slate-200">{ticket.customer}</p>
-                        <p className="mt-0.5 text-sm text-slate-400">{ticket.queryPreview}</p>
-                        {ticket.outcome && (
-                          <p className="mt-1 text-xs text-slate-500">Outcome: {ticket.outcome}</p>
-                        )}
                       </div>
-                    </div>
-                  </li>
-                ))}
-            </ul>
-          </Card>
-        )}
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
     </AppShell>
   );
