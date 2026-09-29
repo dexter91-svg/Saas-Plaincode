@@ -27,7 +27,7 @@ function CollapseIcon({ className }: { className?: string }) {
 const MAIN_MENU = [
   { href: "/dashboard", label: "Dashboard", icon: "grid" },
   { href: "/conversations", label: "Conversations", icon: "chat" },
-  { href: "/forwarded-conversations", label: "Forwarded Conversations", icon: "forward" },
+  { href: "/forwarded-conversations", label: "Escalations", icon: "forward" },
   { href: "/tickets", label: "Tickets", icon: "ticket" },
   { href: "/analytics", label: "Analytics", icon: "chart" },
 ] as const;

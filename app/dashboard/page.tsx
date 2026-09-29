@@ -543,7 +543,7 @@ function DashboardContent() {
                 </Link>
               </div>
               <div className={`${WIZARD_CARD_CLASS} !p-5`}>
-                <h2 className="font-manrope text-sm font-bold text-ink">Forwarded conversations</h2>
+                <h2 className="font-manrope text-sm font-bold text-ink">Escalations</h2>
                 <p className="mt-2 font-manrope text-sm text-warm-body">
                   <span className="font-semibold text-ink">
                     {forwardedCountFromApi !== null ? forwardedCountFromApi : forwarded.length}
@@ -551,7 +551,7 @@ function DashboardContent() {
                   forwarded to email. Add a reply and the customer sees it in chat.
                 </p>
                 <Link href="/forwarded-conversations" className="mt-3 inline-block font-manrope text-sm font-bold text-terracotta hover:text-terracotta-dark">
-                  View forwarded
+                  View escalations
                 </Link>
               </div>
               <div className={`${WIZARD_CARD_CLASS} !p-5`}>

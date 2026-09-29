@@ -165,19 +165,20 @@ export async function submitForwardToSupport(
     input.preview?.trim() ||
     (input.customerMessage?.trim() ? input.customerMessage.trim().slice(0, 500) : "Conversation");
 
+  const orderRef = input.orderRef?.trim() || null;
   const fwdId = existingRow?.id ?? randomUUID();
   if (existingRow) {
     await conn.execute(
       `UPDATE forwarded_conversations
-       SET customer = ?, customer_email = ?, preview = ?, ticket_ref = COALESCE(ticket_ref, ?)
+       SET customer = ?, customer_email = ?, preview = ?, ticket_ref = COALESCE(ticket_ref, ?), order_ref = COALESCE(order_ref, ?)
        WHERE id = ?`,
-      [input.customer, customerEmail, preview, ticketRef, fwdId]
+      [input.customer, customerEmail, preview, ticketRef, orderRef, fwdId]
     );
   } else {
     await conn.execute(
-      `INSERT INTO forwarded_conversations (id, user_id, conversation_id, customer, customer_email, preview, forwarded_as, ticket_ref)
-       VALUES (?, ?, ?, ?, ?, ?, 'email', ?)`,
-      [fwdId, input.userId, input.conversationId, input.customer, customerEmail, preview, ticketRef]
+      `INSERT INTO forwarded_conversations (id, user_id, conversation_id, customer, customer_email, preview, forwarded_as, ticket_ref, order_ref)
+       VALUES (?, ?, ?, ?, ?, ?, 'email', ?, ?)`,
+      [fwdId, input.userId, input.conversationId, input.customer, customerEmail, preview, ticketRef, orderRef]
     );
   }
 

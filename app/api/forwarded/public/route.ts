@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
     // Fetch forwarded conversation metadata
     const [fwdRows] = await conn.execute(
-      `SELECT id, customer, customer_email AS customerEmail, ticket_ref AS ticketRef, replied_at AS repliedAt, reply_text AS replyText, created_at AS createdAt 
+      `SELECT id, customer, customer_email AS customerEmail, ticket_ref AS ticketRef, order_ref AS orderRef, replied_at AS repliedAt, reply_text AS replyText, created_at AS createdAt
        FROM forwarded_conversations WHERE conversation_id = ?`,
       [conversationId]
     );
@@ -54,6 +54,7 @@ export async function GET(req: NextRequest) {
         customer: fwd.customer || "Customer",
         customerEmail: fwd.customerEmail,
         ticketRef: fwd.ticketRef,
+        orderRef: fwd.orderRef,
         repliedAt: fwd.repliedAt,
         replyText: fwd.replyText,
         createdAt: fwd.createdAt,

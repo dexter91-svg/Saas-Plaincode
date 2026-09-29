@@ -15,11 +15,14 @@ export async function GET(req: NextRequest) {
     const conn = await getDbConnection();
     const joinSql = chatbotId
       ? " INNER JOIN conversations conv ON conv.id = forwarded_conversations.conversation_id AND conv.chatbot_id = ?"
-      : "";
+      : " LEFT JOIN conversations conv ON conv.id = forwarded_conversations.conversation_id";
     const params: string[] = chatbotId ? [chatbotId, auth.userId] : [auth.userId];
     const [rows] = await conn.execute(
-      `SELECT forwarded_conversations.id, forwarded_conversations.conversation_id AS conversationId, forwarded_conversations.customer, forwarded_conversations.preview, forwarded_conversations.forwarded_as AS forwardedAs, forwarded_conversations.ticket_ref AS ticketRef,
-       forwarded_conversations.reply_text AS replyText, forwarded_conversations.replied_at AS repliedAt, forwarded_conversations.created_at AS createdAt
+      `SELECT forwarded_conversations.id, forwarded_conversations.conversation_id AS conversationId, conv.chatbot_id AS chatbotId,
+       forwarded_conversations.customer, forwarded_conversations.customer_email AS customerEmail, forwarded_conversations.preview,
+       forwarded_conversations.forwarded_as AS forwardedAs, forwarded_conversations.ticket_ref AS ticketRef, forwarded_conversations.order_ref AS orderRef,
+       forwarded_conversations.reply_text AS replyText, forwarded_conversations.replied_at AS repliedAt,
+       forwarded_conversations.acknowledged_at AS acknowledgedAt, forwarded_conversations.created_at AS createdAt
        FROM forwarded_conversations${joinSql} WHERE forwarded_conversations.user_id = ? ORDER BY forwarded_conversations.created_at DESC`,
       params
     );
@@ -28,14 +31,28 @@ export async function GET(req: NextRequest) {
     type Row = {
       id: string;
       conversationId: string;
+      chatbotId: string | null;
       customer: string;
+      customerEmail: string | null;
       preview: string;
       forwardedAs: string;
       ticketRef: string | null;
+      orderRef: string | null;
       replyText: string | null;
       repliedAt: string | null;
+      acknowledgedAt: string | null;
       createdAt: string;
     };
+
+    // The dashboard's real status: New (just landed) -> Acknowledged (merchant has seen it,
+    // reply not sent yet) -> Resolved (replied). This is the primary status shown; SLA age is
+    // kept only as a secondary "how long has this been waiting" hint, not a competing status.
+    const statusFor = (repliedAt: string | null, acknowledgedAt: string | null) => {
+      if (repliedAt) return "resolved" as const;
+      if (acknowledgedAt) return "acknowledged" as const;
+      return "new" as const;
+    };
+    const STATUS_PRIORITY = { new: 0, acknowledged: 1, resolved: 2 };
 
     const slaFor = (createdAt: string, repliedAt: string | null) => {
       if (repliedAt) return { slaStatus: "resolved" as const, slaPriority: 0 };
@@ -48,25 +65,31 @@ export async function GET(req: NextRequest) {
 
     const list = (rows as Row[]).map((r) => {
       const sla = slaFor(r.createdAt, r.repliedAt);
+      const status = statusFor(r.repliedAt, r.acknowledgedAt);
       return {
         id: r.id,
         conversationId: r.conversationId,
+        chatbotId: r.chatbotId,
         customer: r.customer,
+        customerEmail: r.customerEmail ?? null,
         preview: r.preview,
         forwardedAs: r.forwardedAs,
         ticketRef: r.ticketRef ?? null,
+        orderRef: r.orderRef ?? null,
         replyText: r.replyText ?? null,
         repliedAt: r.repliedAt ?? null,
+        acknowledgedAt: r.acknowledgedAt ?? null,
         createdAt: r.createdAt,
+        status,
         slaStatus: sla.slaStatus,
         slaPriority: sla.slaPriority,
       };
     });
 
     list.sort((a, b) => {
-      const openA = a.repliedAt ? 1 : 0;
-      const openB = b.repliedAt ? 1 : 0;
-      if (openA !== openB) return openA - openB;
+      const pa = STATUS_PRIORITY[a.status];
+      const pb = STATUS_PRIORITY[b.status];
+      if (pa !== pb) return pa - pb;
       if (a.slaPriority !== b.slaPriority) return b.slaPriority - a.slaPriority;
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     });

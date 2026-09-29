@@ -513,6 +513,14 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
       if (res.headers.get("X-Needs-Forward-Form") === "1" || res.headers.get("X-Forwarded-Support") === "1") {
         setShowForwardForm(true);
       }
+      // The server's real ids for this exchange (distinct from our local optimistic `userId`/
+      // `assistantId`). Track them so the background sync poll recognizes these exact messages
+      // when it re-fetches them later and skips re-adding duplicates — this matters most for
+      // fast, non-streamed replies (e.g. the escalation acknowledgment) where the poll can
+      // otherwise race ahead of this request finishing and its own `pendingUserMsgsRef` cleanup.
+      const realAssistantId = res.headers.get("X-Assistant-Message-Id");
+      const realUserId = res.headers.get("X-User-Message-Id");
+      if (realUserId) syncedMsgIdsRef.current.add(realUserId);
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder("utf-8");
@@ -531,11 +539,13 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
       }
 
       // The exchange we just displayed (via addMessage above) is now persisted server-side.
-      // Advance the sync cursor to "now" so the real-time sync effect's next poll — which
-      // dedupes by the server's own message ids, never the client-generated ids used for our
-      // optimistic messages above — doesn't treat this exchange as new and re-add a duplicate.
+      // Advance the sync cursor to "now" so the real-time sync effect's next poll doesn't
+      // treat this exchange as new and re-add a duplicate. Also register the server's real
+      // assistant-message id (not just our local optimistic one) so that even a poll already
+      // in flight with a stale cursor recognizes this exact row and skips it.
       lastSyncSinceRef.current = new Date().toISOString();
       pendingUserMsgsRef.current.delete(question);
+      if (realAssistantId) syncedMsgIdsRef.current.add(realAssistantId);
 
       // If AI requested forward to support (e.g. cancel order, refund), strip marker; backend already created ticket and sent email
       const forwardMarker = "[FORWARD_TO_SUPPORT]";
@@ -658,7 +668,7 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
       </header>
 
       <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4 text-sm">
-        {showForwardForm && !forwardFormSubmitted && conversationIdRef.current && (
+        {showForwardForm && !forwardFormSubmitted && (
           <form onSubmit={handleForwardToEmail} className="mb-3 rounded-lg border border-slate-700 bg-slate-800/80 p-3 space-y-2">
             <p className="text-xs font-medium text-slate-200">Contact our team</p>
             <p className="text-[11px] text-slate-400">We&apos;ll email your details and full chat to support.</p>
@@ -837,21 +847,31 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
         <div ref={endRef} />
       </div>
 
-      {handoffMode === "ai" && !humanRequestedViaButton && (
-        <div className="flex justify-center px-4 pt-2 pb-1">
-          <button
-            type="button"
-            onClick={handleHumanRequest}
-            disabled={loading || disabled}
-            className="flex items-center gap-1.5 rounded-full border border-slate-600 bg-slate-800/70 px-3 py-1 text-xs text-slate-300 hover:border-amber-400/60 hover:bg-amber-950/30 hover:text-amber-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-            Talk to a human
-          </button>
-        </div>
-      )}
+      {/* Fixed toolbar, always visible for the life of the chat — not conditional on
+          handoff state, form state, or whether either has been used before. */}
+      <div className="flex flex-wrap justify-center gap-2 px-4 pt-2 pb-1">
+        <button
+          type="button"
+          onClick={handleHumanRequest}
+          disabled={loading || disabled}
+          className="flex items-center gap-1.5 rounded-full border border-slate-600 bg-slate-800/70 px-3 py-1 text-xs text-slate-300 hover:border-amber-400/60 hover:bg-amber-950/30 hover:text-amber-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+          Talk to a human
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowForwardForm(true)}
+          className="flex items-center gap-1.5 rounded-full border border-slate-600 bg-slate-800/70 px-3 py-1 text-xs text-slate-300 hover:border-primary-400/60 hover:bg-primary-950/30 hover:text-primary-300 transition-colors"
+        >
+          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          Contact support
+        </button>
+      </div>
       <form onSubmit={handleSubmit} className="border-t border-slate-800 px-4 py-3">
         <div className="flex items-end gap-2">
           <textarea
