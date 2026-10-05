@@ -581,7 +581,7 @@ export default function SettingsPage() {
                     onChange={(e) => setResendKey(e.target.value)}
                     placeholder={resendHasKey ? "Paste new key to replace…" : "re_…"}
                     className={`w-full pr-16 ${WIZARD_INPUT_CLASS}`}
-                    autoComplete="off"
+                    autoComplete="new-password"
                   />
                   <button
                     type="button"
