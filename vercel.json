@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/ticket-sla-reminders",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/escalation-alerts",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

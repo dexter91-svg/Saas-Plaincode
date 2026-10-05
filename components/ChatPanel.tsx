@@ -357,11 +357,6 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
 
   const handleForwardToEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cid = conversationIdRef.current;
-    if (!cid) {
-      setError("Start the conversation first so we can forward it.");
-      return;
-    }
     const name = forwardName.trim() || "Customer";
     const email = forwardEmail.trim();
     if (!email) {
@@ -371,6 +366,31 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
     setForwardSubmitting(true);
     setError(null);
     try {
+      let cid = conversationIdRef.current;
+      if (!cid) {
+        if (!chatbotId) {
+          setError("Connect a store first so we can forward it.");
+          return;
+        }
+        const started = await fetch("/api/conversations/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chatbotId }),
+        });
+        const startData = await started.json().catch(() => ({}));
+        if (!started.ok || !startData.conversationId) {
+          setError(startData.error || "Could not start a conversation. Please try again.");
+          return;
+        }
+        cid = startData.conversationId as string;
+        conversationIdRef.current = cid;
+        setActiveConversationId(cid);
+        try {
+          window.sessionStorage.setItem(`plainbot-conversation-id:${chatbotId}`, cid);
+        } catch {
+          /* ignore */
+        }
+      }
       const conversationText = messages
         .map((m) => `${m.role === "user" ? "Customer" : "Assistant"}: ${m.content}`)
         .join("\n");
