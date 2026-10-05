@@ -17,6 +17,17 @@ import { WIZARD_CARD_CLASS, WIZARD_INPUT_CLASS, WIZARD_PRIMARY_BUTTON_CLASS, WIZ
 
 const PERSONALITIES = ["Friendly", "Professional", "Sales-focused", "Premium Luxury"] as const;
 
+const ALERT_PRESETS: { value: string; label: string; minutes: number | null }[] = [
+  { value: "off", label: "Off", minutes: null },
+  { value: "0", label: "Instant (sent at the next check, within 5 min)", minutes: 0 },
+  { value: "2", label: "2 minutes", minutes: 2 },
+  { value: "5", label: "5 minutes", minutes: 5 },
+  { value: "60", label: "1 hour", minutes: 60 },
+  { value: "720", label: "12 hours", minutes: 720 },
+  { value: "1440", label: "24 hours", minutes: 1440 },
+  { value: "custom", label: "Custom…", minutes: null },
+];
+
 const LANGUAGES = [
   { code: "en", label: "English" },
   { code: "es", label: "Spanish" },
@@ -65,9 +76,114 @@ export default function SettingsPage() {
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
+  const [alertEmail, setAlertEmail] = useState("");
+  const [alertPreset, setAlertPreset] = useState<string>("off");
+  const [alertCustom, setAlertCustom] = useState("");
+  const [alertSaving, setAlertSaving] = useState(false);
+  const [alertTesting, setAlertTesting] = useState(false);
+  const [alertMessage, setAlertMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
+
+  const [resendKey, setResendKey] = useState("");
+  const [resendHasKey, setResendHasKey] = useState(false);
+  const [resendSaving, setResendSaving] = useState(false);
+  const [resendMessage, setResendMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
+
   const [notifyEnabled, setNotifyEnabled] = useState(true);
   const [notifySaving, setNotifySaving] = useState(false);
   const [notifyMessage, setNotifyMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/users/escalation-alerts")
+      .then((r) => r.json())
+      .then((data: { email: string | null; minutes: number | null }) => {
+        setAlertEmail(data.email ?? "");
+        if (data.minutes === null || data.minutes === undefined) {
+          setAlertPreset("off");
+        } else {
+          const match = ALERT_PRESETS.find((p) => p.minutes === data.minutes);
+          if (match) {
+            setAlertPreset(match.value);
+          } else {
+            setAlertPreset("custom");
+            setAlertCustom(String(data.minutes));
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const saveEscalationAlerts = async () => {
+    setAlertMessage(null);
+    let minutes: number | null = null;
+    if (alertPreset === "custom") {
+      const n = Number(alertCustom);
+      if (alertCustom.trim() === "" || !Number.isInteger(n) || n < 0) {
+        setAlertMessage({ type: "error", text: "Enter a whole number of minutes (0 or more)." });
+        return;
+      }
+      minutes = n;
+    } else if (alertPreset !== "off") {
+      minutes = ALERT_PRESETS.find((p) => p.value === alertPreset)?.minutes ?? null;
+    }
+    setAlertSaving(true);
+    try {
+      const res = await fetch("/api/users/escalation-alerts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: alertEmail.trim(), minutes }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to save.");
+      setAlertMessage({ type: "ok", text: "Alert settings saved." });
+    } catch (e: unknown) {
+      setAlertMessage({ type: "error", text: e instanceof Error ? e.message : "Failed to save." });
+    } finally {
+      setAlertSaving(false);
+    }
+  };
+
+  const sendTestAlert = async () => {
+    setAlertMessage(null);
+    setAlertTesting(true);
+    try {
+      const res = await fetch("/api/users/escalation-alerts/test", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Test failed.");
+      setAlertMessage({ type: "ok", text: `Test email sent to ${data.sentTo}.` });
+    } catch (e: unknown) {
+      setAlertMessage({ type: "error", text: e instanceof Error ? e.message : "Test failed." });
+    } finally {
+      setAlertTesting(false);
+    }
+  };
+
+  useEffect(() => {
+    fetch("/api/users/resend-key")
+      .then((r) => r.json())
+      .then((data) => { if (typeof data.hasKey === "boolean") setResendHasKey(data.hasKey); })
+      .catch(() => {});
+  }, []);
+
+  const saveResendKey = async () => {
+    setResendMessage(null);
+    setResendSaving(true);
+    try {
+      const res = await fetch("/api/users/resend-key", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resendApiKey: resendKey.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to save.");
+      setResendHasKey(data.hasKey);
+      setResendKey("");
+      setResendMessage({ type: "ok", text: data.hasKey ? "API key saved." : "API key removed." });
+    } catch (e: unknown) {
+      setResendMessage({ type: "error", text: e instanceof Error ? e.message : "Failed to save." });
+    } finally {
+      setResendSaving(false);
+    }
+  };
 
   useEffect(() => {
     fetch("/api/users/notification-sounds")
@@ -370,6 +486,117 @@ export default function SettingsPage() {
               {forwardEmailMessage && (
                 <p className={`mt-2 font-manrope text-xs ${forwardEmailMessage.type === "ok" ? "text-sage" : "text-red-600"}`}>
                   {forwardEmailMessage.text}
+                </p>
+              )}
+            </div>
+
+            {/* Escalation alerts */}
+            <div className={WIZARD_CARD_CLASS}>
+              <h2 className="font-manrope text-[15px] font-bold text-ink">Escalation alerts</h2>
+              <p className="mt-1.5 font-manrope text-[13px] text-warm-body">
+                Get an email when an escalation has been sitting unacknowledged for too long, so nothing gets missed.
+              </p>
+
+              <label className="mt-3.5 block">
+                <span className="block font-manrope text-sm font-semibold text-ink">Send alerts to</span>
+                <input
+                  type="email"
+                  value={alertEmail}
+                  onChange={(e) => setAlertEmail(e.target.value)}
+                  placeholder="you@yourstore.com"
+                  className={`mt-1.5 ${WIZARD_INPUT_CLASS}`}
+                />
+              </label>
+
+              <label className="mt-3.5 block">
+                <span className="block font-manrope text-sm font-semibold text-ink">Alert after</span>
+                <select
+                  value={alertPreset}
+                  onChange={(e) => setAlertPreset(e.target.value)}
+                  className={`mt-1.5 w-full max-w-xs ${WIZARD_INPUT_CLASS}`}
+                >
+                  {ALERT_PRESETS.map((p) => (
+                    <option key={p.value} value={p.value}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {alertPreset === "custom" && (
+                <label className="mt-3.5 block">
+                  <span className="block font-manrope text-sm font-semibold text-ink">Minutes</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={alertCustom}
+                    onChange={(e) => setAlertCustom(e.target.value)}
+                    placeholder="e.g. 90"
+                    className={`mt-1.5 w-40 ${WIZARD_INPUT_CLASS}`}
+                  />
+                </label>
+              )}
+
+              <div className="mt-4 flex flex-wrap gap-2.5">
+                <button
+                  type="button"
+                  disabled={alertSaving}
+                  onClick={saveEscalationAlerts}
+                  className={`${WIZARD_PRIMARY_BUTTON_CLASS} px-5 py-2.5 text-xs`}
+                >
+                  {alertSaving ? "Saving…" : "Save alert settings"}
+                </button>
+                <button
+                  type="button"
+                  disabled={alertTesting || !alertEmail.trim()}
+                  onClick={sendTestAlert}
+                  className={`${WIZARD_OUTLINE_BUTTON_CLASS} px-5 py-2.5 text-xs`}
+                >
+                  {alertTesting ? "Sending…" : "Send test email"}
+                </button>
+              </div>
+
+              {alertMessage && (
+                <p className={`mt-2 font-manrope text-xs ${alertMessage.type === "ok" ? "text-sage" : "text-red-600"}`}>
+                  {alertMessage.text}
+                </p>
+              )}
+            </div>
+
+            {/* Resend API key */}
+            <div className={WIZARD_CARD_CLASS}>
+              <h2 className="font-manrope text-[15px] font-bold text-ink">Email provider (Resend)</h2>
+              <p className="mt-1.5 font-manrope text-[13px] text-warm-body">
+                By default, forwarded emails are sent via Plainbot&apos;s shared Resend account. Paste your own{" "}
+                <a href="https://resend.com" target="_blank" rel="noopener noreferrer" className="underline">
+                  Resend
+                </a>{" "}
+                API key to send from your own account instead.
+              </p>
+              {resendHasKey && (
+                <p className="mt-2 font-manrope text-xs text-sage">A Resend API key is saved. Paste a new one to replace it, or clear the field and save to remove it.</p>
+              )}
+              <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
+                <input
+                  type="password"
+                  value={resendKey}
+                  onChange={(e) => setResendKey(e.target.value)}
+                  placeholder={resendHasKey ? "Paste new key to replace…" : "re_…"}
+                  className={`min-w-[220px] flex-1 ${WIZARD_INPUT_CLASS}`}
+                  autoComplete="off"
+                />
+                <button
+                  type="button"
+                  disabled={resendSaving}
+                  onClick={saveResendKey}
+                  className={`${WIZARD_PRIMARY_BUTTON_CLASS} px-5 py-2.5 text-xs`}
+                >
+                  {resendSaving ? "Saving…" : "Save"}
+                </button>
+              </div>
+              {resendMessage && (
+                <p className={`mt-2 font-manrope text-xs ${resendMessage.type === "ok" ? "text-sage" : "text-red-600"}`}>
+                  {resendMessage.text}
                 </p>
               )}
             </div>

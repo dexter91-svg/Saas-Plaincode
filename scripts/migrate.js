@@ -566,6 +566,49 @@ async function run() {
       console.log("forwarded_conversations.acknowledged_at already exists, skip.");
     }
 
+    // 011: escalation alert email + timer on users; alerted-at marker on forwarded_conversations
+    if (!(await hasColumn(conn, "users", "escalation_alert_email"))) {
+      console.log("Adding users.escalation_alert_email...");
+      await conn.execute("ALTER TABLE users ADD COLUMN escalation_alert_email VARCHAR(255) NULL DEFAULT NULL");
+      console.log("  OK");
+    } else {
+      console.log("users.escalation_alert_email already exists, skip.");
+    }
+    if (!(await hasColumn(conn, "users", "escalation_alert_minutes"))) {
+      console.log("Adding users.escalation_alert_minutes...");
+      await conn.execute("ALTER TABLE users ADD COLUMN escalation_alert_minutes INT NULL DEFAULT NULL");
+      console.log("  OK");
+    } else {
+      console.log("users.escalation_alert_minutes already exists, skip.");
+    }
+    if (!(await hasColumn(conn, "forwarded_conversations", "merchant_alerted_at"))) {
+      console.log("Adding forwarded_conversations.merchant_alerted_at...");
+      await conn.execute(
+        "ALTER TABLE forwarded_conversations ADD COLUMN merchant_alerted_at TIMESTAMP NULL DEFAULT NULL"
+      );
+      console.log("  OK");
+    } else {
+      console.log("forwarded_conversations.merchant_alerted_at already exists, skip.");
+    }
+
+    // 012: the "How can we help?" text from the contact form
+    if (!(await hasColumn(conn, "forwarded_conversations", "customer_message"))) {
+      console.log("Adding forwarded_conversations.customer_message...");
+      await conn.execute("ALTER TABLE forwarded_conversations ADD COLUMN customer_message TEXT NULL DEFAULT NULL");
+      console.log("  OK");
+    } else {
+      console.log("forwarded_conversations.customer_message already exists, skip.");
+    }
+
+    // 013: per-user Resend API key (optional; overrides server-wide RESEND_API_KEY)
+    if (!(await hasColumn(conn, "users", "resend_api_key"))) {
+      console.log("Adding users.resend_api_key...");
+      await conn.execute("ALTER TABLE users ADD COLUMN resend_api_key VARCHAR(255) NULL DEFAULT NULL");
+      console.log("  OK");
+    } else {
+      console.log("users.resend_api_key already exists, skip.");
+    }
+
     // 009: crawl_logs (every scrape/crawl attempt, for auditing and the Logs page)
     const [crawlLogTables] = await conn.execute(
       "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'crawl_logs'",
