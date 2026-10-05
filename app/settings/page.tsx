@@ -83,6 +83,7 @@ export default function SettingsPage() {
   const [resendHasKey, setResendHasKey] = useState(false);
   const [resendSaving, setResendSaving] = useState(false);
   const [resendMessage, setResendMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
+  const [resendKeyVisible, setResendKeyVisible] = useState(false);
 
   const [notifyEnabled, setNotifyEnabled] = useState(true);
   const [notifySaving, setNotifySaving] = useState(false);
@@ -573,14 +574,23 @@ export default function SettingsPage() {
                 <p className="mt-2 font-manrope text-xs text-sage">A Resend API key is saved. Paste a new one to replace it, or clear the field and save to remove it.</p>
               )}
               <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
-                <input
-                  type="password"
-                  value={resendKey}
-                  onChange={(e) => setResendKey(e.target.value)}
-                  placeholder={resendHasKey ? "Paste new key to replace…" : "re_…"}
-                  className={`min-w-[220px] flex-1 ${WIZARD_INPUT_CLASS}`}
-                  autoComplete="off"
-                />
+                <div className="relative min-w-[220px] flex-1">
+                  <input
+                    type={resendKeyVisible ? "text" : "password"}
+                    value={resendKey}
+                    onChange={(e) => setResendKey(e.target.value)}
+                    placeholder={resendHasKey ? "Paste new key to replace…" : "re_…"}
+                    className={`w-full pr-16 ${WIZARD_INPUT_CLASS}`}
+                    autoComplete="off"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setResendKeyVisible((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 font-manrope text-xs text-warm-muted hover:text-ink"
+                  >
+                    {resendKeyVisible ? "Hide" : "Show"}
+                  </button>
+                </div>
                 <button
                   type="button"
                   disabled={resendSaving}
