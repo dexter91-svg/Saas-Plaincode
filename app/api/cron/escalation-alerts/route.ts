@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
        INNER JOIN users u ON u.id = fc.user_id
        WHERE fc.replied_at IS NULL
          AND fc.acknowledged_at IS NULL
-         AND fc.merchant_alerted_at IS NULL
+         AND (fc.merchant_alerted_at IS NULL OR fc.merchant_alerted_at < DATE_SUB(NOW(), INTERVAL 24 HOUR))
          AND u.escalation_alert_minutes IS NOT NULL
          AND u.escalation_alert_email IS NOT NULL
          AND TRIM(u.escalation_alert_email) <> ''`

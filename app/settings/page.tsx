@@ -20,12 +20,8 @@ const PERSONALITIES = ["Friendly", "Professional", "Sales-focused", "Premium Lux
 const ALERT_PRESETS: { value: string; label: string; minutes: number | null }[] = [
   { value: "off", label: "Off", minutes: null },
   { value: "0", label: "Instant (sent at the next check, within 5 min)", minutes: 0 },
-  { value: "2", label: "2 minutes", minutes: 2 },
-  { value: "5", label: "5 minutes", minutes: 5 },
-  { value: "60", label: "1 hour", minutes: 60 },
-  { value: "720", label: "12 hours", minutes: 720 },
   { value: "1440", label: "24 hours", minutes: 1440 },
-  { value: "custom", label: "Custom…", minutes: null },
+  { value: "custom", label: "Custom… (hours)", minutes: null },
 ];
 
 const LANGUAGES = [
@@ -105,7 +101,7 @@ export default function SettingsPage() {
             setAlertPreset(match.value);
           } else {
             setAlertPreset("custom");
-            setAlertCustom(String(data.minutes));
+            setAlertCustom(String(Math.round(data.minutes / 60)));
           }
         }
       })
@@ -117,11 +113,11 @@ export default function SettingsPage() {
     let minutes: number | null = null;
     if (alertPreset === "custom") {
       const n = Number(alertCustom);
-      if (alertCustom.trim() === "" || !Number.isInteger(n) || n < 0) {
-        setAlertMessage({ type: "error", text: "Enter a whole number of minutes (0 or more)." });
+      if (alertCustom.trim() === "" || !Number.isInteger(n) || n < 1) {
+        setAlertMessage({ type: "error", text: "Enter a whole number of hours (1 or more)." });
         return;
       }
-      minutes = n;
+      minutes = n * 60;
     } else if (alertPreset !== "off") {
       minutes = ALERT_PRESETS.find((p) => p.value === alertPreset)?.minutes ?? null;
     }
@@ -525,13 +521,13 @@ export default function SettingsPage() {
 
               {alertPreset === "custom" && (
                 <label className="mt-3.5 block">
-                  <span className="block font-manrope text-sm font-semibold text-ink">Minutes</span>
+                  <span className="block font-manrope text-sm font-semibold text-ink">Hours</span>
                   <input
                     type="number"
-                    min={0}
+                    min={1}
                     value={alertCustom}
                     onChange={(e) => setAlertCustom(e.target.value)}
-                    placeholder="e.g. 90"
+                    placeholder="e.g. 48"
                     className={`mt-1.5 w-40 ${WIZARD_INPUT_CLASS}`}
                   />
                 </label>
