@@ -81,9 +81,11 @@ export default function SettingsPage() {
 
   const [resendKey, setResendKey] = useState("");
   const [resendHasKey, setResendHasKey] = useState(false);
+  const [resendSavedKey, setResendSavedKey] = useState<string | null>(null);
   const [resendSaving, setResendSaving] = useState(false);
   const [resendMessage, setResendMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
   const [resendKeyVisible, setResendKeyVisible] = useState(false);
+  const [resendSavedVisible, setResendSavedVisible] = useState(false);
 
   const [notifyEnabled, setNotifyEnabled] = useState(true);
   const [notifySaving, setNotifySaving] = useState(false);
@@ -157,7 +159,10 @@ export default function SettingsPage() {
   useEffect(() => {
     fetch("/api/users/resend-key")
       .then((r) => r.json())
-      .then((data) => { if (typeof data.hasKey === "boolean") setResendHasKey(data.hasKey); })
+      .then((data) => {
+        if (typeof data.hasKey === "boolean") setResendHasKey(data.hasKey);
+        if (typeof data.resendApiKey === "string") setResendSavedKey(data.resendApiKey);
+      })
       .catch(() => {});
   }, []);
 
@@ -173,8 +178,10 @@ export default function SettingsPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Failed to save.");
       setResendHasKey(data.hasKey);
+      setResendSavedKey(resendKey.trim() && data.hasKey ? resendKey.trim() : null);
       setResendKey("");
       setResendKeyVisible(false);
+      setResendSavedVisible(false);
       setResendMessage({ type: "ok", text: data.hasKey ? "API key saved." : "API key removed." });
     } catch (e: unknown) {
       setResendMessage({ type: "error", text: e instanceof Error ? e.message : "Failed to save." });
@@ -574,8 +581,19 @@ export default function SettingsPage() {
               {resendHasKey && resendKey === "" ? (
                 <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
                   <div className={`flex flex-1 min-w-[220px] items-center justify-between rounded-lg border border-ink/[.15] bg-warm-bg px-3 py-2.5 font-mono text-sm text-warm-muted`}>
-                    <span>re_••••••••••••••••••••••</span>
-                    <span className="ml-2 font-manrope text-xs text-sage">Saved</span>
+                    <span className="truncate">
+                      {resendSavedVisible && resendSavedKey ? resendSavedKey : "re_••••••••••••••••••••••"}
+                    </span>
+                    <div className="ml-2 flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setResendSavedVisible((v) => !v)}
+                        className="font-manrope text-xs text-warm-muted hover:text-ink"
+                      >
+                        {resendSavedVisible ? "Hide" : "Show"}
+                      </button>
+                      <span className="font-manrope text-xs text-sage">Saved</span>
+                    </div>
                   </div>
                   <button
                     type="button"

@@ -10,7 +10,7 @@ export async function GET() {
     const [rows] = await conn.execute("SELECT resend_api_key AS resendApiKey FROM users WHERE id = ?", [auth.userId]);
     await conn.end();
     const key = (rows as { resendApiKey: string | null }[])[0]?.resendApiKey ?? null;
-    return NextResponse.json({ hasKey: !!key });
+    return NextResponse.json({ hasKey: !!key, resendApiKey: key });
   } catch (err) {
     console.error("GET resend-key:", err);
     return NextResponse.json({ error: "Failed" }, { status: 500 });
