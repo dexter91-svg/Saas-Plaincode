@@ -592,6 +592,15 @@ export default function SettingsPage() {
                       >
                         {resendSavedVisible ? "Hide" : "Show"}
                       </button>
+                      {resendSavedKey && (
+                        <button
+                          type="button"
+                          onClick={() => navigator.clipboard.writeText(resendSavedKey)}
+                          className="font-manrope text-xs text-warm-muted hover:text-ink"
+                        >
+                          Copy
+                        </button>
+                      )}
                       <span className="font-manrope text-xs text-sage">Saved</span>
                     </div>
                   </div>
