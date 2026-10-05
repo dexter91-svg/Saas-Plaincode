@@ -174,6 +174,7 @@ export default function SettingsPage() {
       if (!res.ok) throw new Error(data.error || "Failed to save.");
       setResendHasKey(data.hasKey);
       setResendKey("");
+      setResendKeyVisible(false);
       setResendMessage({ type: "ok", text: data.hasKey ? "API key saved." : "API key removed." });
     } catch (e: unknown) {
       setResendMessage({ type: "error", text: e instanceof Error ? e.message : "Failed to save." });
@@ -570,18 +571,39 @@ export default function SettingsPage() {
                 </a>{" "}
                 API key to send from your own account instead.
               </p>
-              {resendHasKey && (
-                <p className="mt-2 font-manrope text-xs text-sage">A Resend API key is saved. Paste a new one to replace it, or clear the field and save to remove it.</p>
-              )}
+              {resendHasKey && resendKey === "" ? (
+                <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
+                  <div className={`flex flex-1 min-w-[220px] items-center justify-between rounded-lg border border-ink/[.15] bg-warm-bg px-3 py-2.5 font-mono text-sm text-warm-muted`}>
+                    <span>re_••••••••••••••••••••••</span>
+                    <span className="ml-2 font-manrope text-xs text-sage">Saved</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setResendKey(" ")}
+                    className={`${WIZARD_OUTLINE_BUTTON_CLASS} px-5 py-2.5 text-xs`}
+                  >
+                    Replace
+                  </button>
+                  <button
+                    type="button"
+                    disabled={resendSaving}
+                    onClick={() => { setResendKey(""); void saveResendKey(); }}
+                    className="font-manrope text-xs text-red-500 hover:underline"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
               <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
                 <div className="relative min-w-[220px] flex-1">
                   <input
                     type={resendKeyVisible ? "text" : "password"}
-                    value={resendKey}
+                    value={resendKey.trim()}
                     onChange={(e) => setResendKey(e.target.value)}
-                    placeholder={resendHasKey ? "Paste new key to replace…" : "re_…"}
+                    placeholder="re_…"
                     className={`w-full pr-16 ${WIZARD_INPUT_CLASS}`}
                     autoComplete="new-password"
+                    autoFocus={resendHasKey}
                   />
                   <button
                     type="button"
@@ -600,6 +622,7 @@ export default function SettingsPage() {
                   {resendSaving ? "Saving…" : "Save"}
                 </button>
               </div>
+              )}
               {resendMessage && (
                 <p className={`mt-2 font-manrope text-xs ${resendMessage.type === "ok" ? "text-sage" : "text-red-600"}`}>
                   {resendMessage.text}
