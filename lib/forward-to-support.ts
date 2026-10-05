@@ -31,25 +31,29 @@ async function sendForwardEmail(args: {
   customerMessage?: string | null;
   preview: string;
   conversationText: string;
+  resendApiKey?: string | null;
 }): Promise<boolean> {
   const token = createForwardToken(args.conversationId);
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const link = `${baseUrl}/forwarded-conversations?id=${args.conversationId}&token=${token}`;
 
 
-  if (!process.env.RESEND_API_KEY) {
+  const apiKey = args.resendApiKey?.trim() || process.env.RESEND_API_KEY;
+  if (!apiKey) {
     console.log("[Forward to email] RESEND_API_KEY missing — email not sent.");
     return false;
   }
+  const msgText = args.customerMessage?.trim() || null;
+  const previewText = args.preview?.replace(/\s+/g, " ").trim() || null;
+  const showPreview = previewText && previewText !== msgText;
   const emailBody = [
     "Forwarded conversation (customer submitted contact form)",
     args.ticketRef ? `Ticket: #${args.ticketRef}` : "",
     `Customer: ${args.customer}`,
     `Email: ${args.customerEmail}`,
     args.orderRef ? `Order/Ref: ${args.orderRef}` : "",
-    args.customerMessage ? `Message: ${args.customerMessage}` : "",
-    "",
-    `Preview: ${args.preview}`,
+    msgText ? `Message: ${msgText}` : "",
+    showPreview ? `Preview: ${previewText}` : "",
     "",
     `View & Reply (Read-Only): ${link}`,
     "",
@@ -70,11 +74,11 @@ async function sendForwardEmail(args: {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         from: process.env.EMAIL_FROM || "onboarding@resend.dev",
-        to: args.to,
+        to: [args.to],
         subject,
         text: emailBody,
       }),
@@ -165,19 +169,21 @@ export async function submitForwardToSupport(
     input.preview?.trim() ||
     (input.customerMessage?.trim() ? input.customerMessage.trim().slice(0, 500) : "Conversation");
 
+  const orderRef = input.orderRef?.trim() || null;
+  const customerMessage = input.customerMessage?.trim() || null;
   const fwdId = existingRow?.id ?? randomUUID();
   if (existingRow) {
     await conn.execute(
       `UPDATE forwarded_conversations
-       SET customer = ?, customer_email = ?, preview = ?, ticket_ref = COALESCE(ticket_ref, ?)
+       SET customer = ?, customer_email = ?, preview = ?, ticket_ref = COALESCE(ticket_ref, ?), order_ref = COALESCE(order_ref, ?), customer_message = COALESCE(customer_message, ?)
        WHERE id = ?`,
-      [input.customer, customerEmail, preview, ticketRef, fwdId]
+      [input.customer, customerEmail, preview, ticketRef, orderRef, customerMessage, fwdId]
     );
   } else {
     await conn.execute(
-      `INSERT INTO forwarded_conversations (id, user_id, conversation_id, customer, customer_email, preview, forwarded_as, ticket_ref)
-       VALUES (?, ?, ?, ?, ?, ?, 'email', ?)`,
-      [fwdId, input.userId, input.conversationId, input.customer, customerEmail, preview, ticketRef]
+      `INSERT INTO forwarded_conversations (id, user_id, conversation_id, customer, customer_email, preview, forwarded_as, ticket_ref, order_ref, customer_message)
+       VALUES (?, ?, ?, ?, ?, ?, 'email', ?, ?, ?)`,
+      [fwdId, input.userId, input.conversationId, input.customer, customerEmail, preview, ticketRef, orderRef, customerMessage]
     );
   }
 
@@ -193,8 +199,10 @@ export async function submitForwardToSupport(
       .join("\n");
   }
 
-  const [userRows] = await conn.execute("SELECT forward_email FROM users WHERE id = ?", [input.userId]);
-  const forwardEmail = (userRows as { forward_email?: string }[])[0]?.forward_email ?? null;
+  const [userRows] = await conn.execute("SELECT forward_email, resend_api_key FROM users WHERE id = ?", [input.userId]);
+  const userRow = (userRows as { forward_email?: string; resend_api_key?: string }[])[0];
+  const forwardEmail = userRow?.forward_email ?? null;
+  const resendApiKey = userRow?.resend_api_key ?? null;
 
   let emailSent = false;
   if (forwardEmail) {
@@ -208,6 +216,7 @@ export async function submitForwardToSupport(
       customerMessage: input.customerMessage,
       preview,
       conversationText,
+      resendApiKey,
     });
   }
 

@@ -534,6 +534,110 @@ async function run() {
       console.log("users.complimentary_credits already exists, skip.");
     }
 
+    // 008: conversations.requests_human (customer explicitly asked for a human/agent)
+    if (!(await hasColumn(conn, "conversations", "requests_human"))) {
+      console.log("Adding conversations.requests_human...");
+      await conn.execute(
+        "ALTER TABLE conversations ADD COLUMN requests_human TINYINT(1) NOT NULL DEFAULT 0"
+      );
+      await conn.execute(
+        "ALTER TABLE conversations ADD INDEX idx_conversations_requests_human (requests_human)"
+      );
+      console.log("  OK");
+    } else {
+      console.log("conversations.requests_human already exists, skip.");
+    }
+
+    // 010: forwarded_conversations.order_ref + acknowledged_at (merchant escalation dashboard)
+    if (!(await hasColumn(conn, "forwarded_conversations", "order_ref"))) {
+      console.log("Adding forwarded_conversations.order_ref...");
+      await conn.execute("ALTER TABLE forwarded_conversations ADD COLUMN order_ref VARCHAR(255) DEFAULT NULL");
+      console.log("  OK");
+    } else {
+      console.log("forwarded_conversations.order_ref already exists, skip.");
+    }
+    if (!(await hasColumn(conn, "forwarded_conversations", "acknowledged_at"))) {
+      console.log("Adding forwarded_conversations.acknowledged_at...");
+      await conn.execute(
+        "ALTER TABLE forwarded_conversations ADD COLUMN acknowledged_at TIMESTAMP NULL DEFAULT NULL"
+      );
+      console.log("  OK");
+    } else {
+      console.log("forwarded_conversations.acknowledged_at already exists, skip.");
+    }
+
+    // 011: escalation alert email + timer on users; alerted-at marker on forwarded_conversations
+    if (!(await hasColumn(conn, "users", "escalation_alert_email"))) {
+      console.log("Adding users.escalation_alert_email...");
+      await conn.execute("ALTER TABLE users ADD COLUMN escalation_alert_email VARCHAR(255) NULL DEFAULT NULL");
+      console.log("  OK");
+    } else {
+      console.log("users.escalation_alert_email already exists, skip.");
+    }
+    if (!(await hasColumn(conn, "users", "escalation_alert_minutes"))) {
+      console.log("Adding users.escalation_alert_minutes...");
+      await conn.execute("ALTER TABLE users ADD COLUMN escalation_alert_minutes INT NULL DEFAULT NULL");
+      console.log("  OK");
+    } else {
+      console.log("users.escalation_alert_minutes already exists, skip.");
+    }
+    if (!(await hasColumn(conn, "forwarded_conversations", "merchant_alerted_at"))) {
+      console.log("Adding forwarded_conversations.merchant_alerted_at...");
+      await conn.execute(
+        "ALTER TABLE forwarded_conversations ADD COLUMN merchant_alerted_at TIMESTAMP NULL DEFAULT NULL"
+      );
+      console.log("  OK");
+    } else {
+      console.log("forwarded_conversations.merchant_alerted_at already exists, skip.");
+    }
+
+    // 012: the "How can we help?" text from the contact form
+    if (!(await hasColumn(conn, "forwarded_conversations", "customer_message"))) {
+      console.log("Adding forwarded_conversations.customer_message...");
+      await conn.execute("ALTER TABLE forwarded_conversations ADD COLUMN customer_message TEXT NULL DEFAULT NULL");
+      console.log("  OK");
+    } else {
+      console.log("forwarded_conversations.customer_message already exists, skip.");
+    }
+
+    // 013: per-user Resend API key (optional; overrides server-wide RESEND_API_KEY)
+    if (!(await hasColumn(conn, "users", "resend_api_key"))) {
+      console.log("Adding users.resend_api_key...");
+      await conn.execute("ALTER TABLE users ADD COLUMN resend_api_key VARCHAR(255) NULL DEFAULT NULL");
+      console.log("  OK");
+    } else {
+      console.log("users.resend_api_key already exists, skip.");
+    }
+
+    // 009: crawl_logs (every scrape/crawl attempt, for auditing and the Logs page)
+    const [crawlLogTables] = await conn.execute(
+      "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'crawl_logs'",
+      [database]
+    );
+    if (!Array.isArray(crawlLogTables) || crawlLogTables.length === 0) {
+      console.log("Creating crawl_logs...");
+      await conn.execute(`
+        CREATE TABLE crawl_logs (
+          id              CHAR(36) PRIMARY KEY,
+          user_id         CHAR(36) NULL,
+          url             VARCHAR(500) NOT NULL,
+          status          ENUM('success', 'failed', 'timeout', 'captcha') NOT NULL,
+          store_type      VARCHAR(50) NULL,
+          products_found  INT NOT NULL DEFAULT 0,
+          duration_ms     INT NULL,
+          error_message   TEXT NULL,
+          created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_crawl_logs_user    (user_id),
+          INDEX idx_crawl_logs_created (created_at),
+          INDEX idx_crawl_logs_status  (status),
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+      console.log("  OK");
+    } else {
+      console.log("crawl_logs already exists, skip.");
+    }
+
     console.log("\nMigrations finished.");
   } finally {
     await conn.end();

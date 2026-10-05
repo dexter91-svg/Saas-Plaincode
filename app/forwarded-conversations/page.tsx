@@ -1,23 +1,29 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { Fragment, useEffect, useState, useRef } from "react";
 import AppShell from "@/components/AppShell";
 import { useBot } from "@/components/BotContext";
 import WizardHeader from "@/components/WizardHeader";
 import { WIZARD_CARD_CLASS, WIZARD_INPUT_CLASS, WIZARD_PRIMARY_BUTTON_CLASS, WIZARD_OUTLINE_BUTTON_CLASS } from "@/lib/wizard-ui";
 
 type SlaStatus = "resolved" | "waiting" | "high" | "critical" | "overdue";
+type EscalationStatus = "new" | "acknowledged" | "resolved";
 
 type ForwardedItem = {
   id: string;
   conversationId: string;
+  chatbotId: string | null;
   customer: string;
+  customerEmail: string | null;
   preview: string;
   forwardedAs: string;
   ticketRef: string | null;
+  orderRef: string | null;
   replyText: string | null;
   repliedAt: string | null;
+  acknowledgedAt: string | null;
   createdAt: string;
+  status: EscalationStatus;
   slaStatus: SlaStatus;
   slaPriority: number;
 };
@@ -29,13 +35,12 @@ type ChatMsg = {
   createdAt?: string;
 };
 
-function slaBadge(s: SlaStatus) {
-  const map: Record<SlaStatus, { label: string; className: string }> = {
+// The dashboard's real status — New / Acknowledged / Resolved — is the primary badge shown.
+function statusBadge(s: EscalationStatus) {
+  const map: Record<EscalationStatus, { label: string; className: string }> = {
+    new: { label: "New", className: "bg-terracotta/10 text-terracotta" },
+    acknowledged: { label: "Acknowledged", className: "bg-blue-100 text-blue-700" },
     resolved: { label: "Resolved", className: "bg-sage/10 text-sage" },
-    waiting: { label: "Open", className: "bg-ink/[.06] text-warm-body" },
-    high: { label: "6h+ priority", className: "bg-amber-100 text-amber-700" },
-    critical: { label: "12h+ urgent", className: "bg-orange-100 text-orange-700" },
-    overdue: { label: "24h+ overdue", className: "bg-red-100 text-red-600" },
   };
   const x = map[s];
   return (
@@ -43,6 +48,19 @@ function slaBadge(s: SlaStatus) {
       {x.label}
     </span>
   );
+}
+
+// Secondary "how long has this been waiting" hint shown under the status badge — not a
+// competing status, just context for how urgent an unresolved item is.
+function slaHint(s: SlaStatus) {
+  const map: Partial<Record<SlaStatus, string>> = {
+    high: "6h+ waiting",
+    critical: "12h+ waiting",
+    overdue: "24h+ waiting",
+  };
+  const label = map[s];
+  if (!label) return null;
+  return <span className="mt-1 block font-manrope text-[11px] text-warm-muted">{label}</span>;
 }
 
 function roleLabel(role: string): string {
@@ -82,6 +100,10 @@ export default function ForwardedConversationsPage({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [acknowledgingId, setAcknowledgingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedMessages, setExpandedMessages] = useState<Record<string, ChatMsg[]>>({});
+  const [loadingHistoryId, setLoadingHistoryId] = useState<string | null>(null);
 
   const threadEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -166,6 +188,47 @@ export default function ForwardedConversationsPage({
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Mark an escalation as seen/being-handled, without needing a reply ready yet.
+  const handleAcknowledge = async (id: string) => {
+    setAcknowledgingId(id);
+    try {
+      const res = await fetch(`/api/forwarded/${id}/acknowledge`, { method: "PATCH" });
+      if (res.ok) {
+        setList((prev) =>
+          prev.map((item) =>
+            item.id === id && item.status === "new"
+              ? { ...item, status: "acknowledged", acknowledgedAt: new Date().toISOString() }
+              : item
+          )
+        );
+      }
+    } finally {
+      setAcknowledgingId(null);
+    }
+  };
+
+  // Full conversation history, fetched on demand per row so the list load stays light.
+  const toggleHistory = async (item: ForwardedItem) => {
+    if (expandedId === item.id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(item.id);
+    if (expandedMessages[item.id] || !item.chatbotId) return;
+    setLoadingHistoryId(item.id);
+    try {
+      const res = await fetch(
+        `/api/conversations/messages?conversationId=${encodeURIComponent(item.conversationId)}&chatbotId=${encodeURIComponent(item.chatbotId)}`
+      );
+      const data = await res.json().catch(() => ({}));
+      if (Array.isArray(data.messages)) {
+        setExpandedMessages((prev) => ({ ...prev, [item.id]: data.messages }));
+      }
+    } finally {
+      setLoadingHistoryId(null);
     }
   };
 
@@ -256,6 +319,12 @@ export default function ForwardedConversationsPage({
                     <span className="block font-manrope text-xs text-warm-muted">Date Forwarded</span>
                     <span>{new Date(publicConv.createdAt).toLocaleString()}</span>
                   </div>
+                  {publicConv.orderRef && (
+                    <div>
+                      <span className="block font-manrope text-xs text-warm-muted">Order</span>
+                      <span className="font-semibold text-ink">{publicConv.orderRef}</span>
+                    </div>
+                  )}
                   <div>
                     <span className="block font-manrope text-xs text-warm-muted">Status</span>
                     <span>
@@ -375,18 +444,18 @@ export default function ForwardedConversationsPage({
     <AppShell>
       <div className="min-h-full bg-cream">
         <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-          <h1 className="font-display text-[28px] text-ink">Forwarded conversations</h1>
+          <h1 className="font-display text-[28px] text-ink">Escalations</h1>
           <p className="mt-1.5 max-w-3xl font-manrope text-sm leading-relaxed text-warm-body">
-            Forwarded to your support email. Replies (email or dashboard) go to the customer in chat and by email.
-            Tickets stay open until you reply — never auto-closed. SLA (6h / 12h / 24h) shows priority; customers get
-            check-in emails at those times if you haven&apos;t replied yet.
+            Every escalated conversation, tracked here — not just sitting in an inbox where it could get missed.
+            New → Acknowledge it once you&apos;ve seen it → Resolved once you reply. Customers get check-in emails
+            at 6h / 12h / 24h if a reply is still outstanding.
           </p>
           <div className={`mt-6 ${WIZARD_CARD_CLASS} !p-0 overflow-hidden`}>
             {loading ? (
               <p className="py-10 text-center font-manrope text-sm text-warm-muted">Loading…</p>
             ) : list.length === 0 ? (
               <p className="px-10 py-10 text-center font-manrope text-sm text-warm-muted">
-                No forwarded conversations yet. Forward from the Conversations tab or when the AI can&apos;t help
+                No escalations yet. Forward from the Conversations tab or when the AI can&apos;t help
                 (e.g. order cancellation).
               </p>
             ) : (
@@ -396,73 +465,129 @@ export default function ForwardedConversationsPage({
                     <tr>
                       <th className="px-4 py-3 text-left font-manrope text-xs font-bold uppercase tracking-wide text-warm-muted">Status</th>
                       <th className="px-4 py-3 text-left font-manrope text-xs font-bold uppercase tracking-wide text-warm-muted">Customer</th>
+                      <th className="px-4 py-3 text-left font-manrope text-xs font-bold uppercase tracking-wide text-warm-muted">Order</th>
                       <th className="px-4 py-3 text-left font-manrope text-xs font-bold uppercase tracking-wide text-warm-muted">Preview</th>
                       <th className="px-4 py-3 text-left font-manrope text-xs font-bold uppercase tracking-wide text-warm-muted">When</th>
-                      <th className="px-4 py-3 text-left font-manrope text-xs font-bold uppercase tracking-wide text-warm-muted">Reply</th>
+                      <th className="px-4 py-3 text-left font-manrope text-xs font-bold uppercase tracking-wide text-warm-muted">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-ink/[.08]">
                     {list.map((item) => (
-                      <tr key={item.id}>
-                        <td className="px-4 py-3.5 align-top">
-                          {slaBadge(item.slaStatus)}
-                        </td>
-                        <td className="px-4 py-3.5 font-manrope text-sm font-semibold text-ink">{item.customer}</td>
-                        <td className="max-w-xs px-4 py-3.5 font-manrope text-sm text-warm-body">
-                          <span className="line-clamp-2">{item.preview}</span>
-                        </td>
-                        <td className="px-4 py-3.5 font-manrope text-xs text-warm-muted">
-                          {new Date(item.createdAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
-                        </td>
-                        <td className="px-4 py-3.5">
-                          {item.replyText ? (
-                            <div className="rounded-[10px] border border-ink/[.08] bg-cream px-3 py-2 text-ink">
-                              <p className="mb-1 font-manrope text-xs text-warm-muted">Your reply (shown in chat)</p>
-                              <p className="whitespace-pre-wrap font-manrope text-sm">{item.replyText}</p>
-                              {item.repliedAt && (
-                                <p className="mt-1 font-manrope text-xs text-warm-muted">
-                                  {new Date(item.repliedAt).toLocaleString()}
-                                </p>
-                              )}
-                            </div>
-                          ) : replyingId === item.id ? (
-                            <div className="space-y-2">
-                              <textarea
-                                value={replyDraft}
-                                onChange={(e) => setReplyDraft(e.target.value)}
-                                placeholder="e.g. Your order has been cancelled. Confirmation email sent."
-                                rows={3}
-                                className={WIZARD_INPUT_CLASS}
-                              />
-                              <div className="flex gap-2">
+                      <Fragment key={item.id}>
+                        <tr>
+                          <td className="px-4 py-3.5 align-top">
+                            {statusBadge(item.status)}
+                            {item.status !== "resolved" && slaHint(item.slaStatus)}
+                          </td>
+                          <td className="px-4 py-3.5 align-top font-manrope">
+                            <span className="text-sm font-semibold text-ink">{item.customer}</span>
+                            {item.customerEmail && (
+                              <span className="block text-xs text-warm-muted">{item.customerEmail}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5 align-top font-manrope text-sm text-ink">
+                            {item.orderRef || <span className="text-warm-muted">—</span>}
+                          </td>
+                          <td className="max-w-xs px-4 py-3.5 align-top font-manrope text-sm text-warm-body">
+                            <span className="line-clamp-2">{item.preview}</span>
+                            <button
+                              type="button"
+                              onClick={() => toggleHistory(item)}
+                              className="mt-1 block font-manrope text-xs font-bold text-terracotta hover:text-terracotta-dark"
+                            >
+                              {expandedId === item.id ? "Hide conversation" : "View conversation"}
+                            </button>
+                          </td>
+                          <td className="px-4 py-3.5 align-top font-manrope text-xs text-warm-muted">
+                            {new Date(item.createdAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
+                          </td>
+                          <td className="px-4 py-3.5 align-top">
+                            {item.replyText ? (
+                              <div className="rounded-[10px] border border-ink/[.08] bg-cream px-3 py-2 text-ink">
+                                <p className="mb-1 font-manrope text-xs text-warm-muted">Your reply (shown in chat)</p>
+                                <p className="whitespace-pre-wrap font-manrope text-sm">{item.replyText}</p>
+                                {item.repliedAt && (
+                                  <p className="mt-1 font-manrope text-xs text-warm-muted">
+                                    {new Date(item.repliedAt).toLocaleString()}
+                                  </p>
+                                )}
+                              </div>
+                            ) : replyingId === item.id ? (
+                              <div className="space-y-2">
+                                <textarea
+                                  value={replyDraft}
+                                  onChange={(e) => setReplyDraft(e.target.value)}
+                                  placeholder="e.g. Your order has been cancelled. Confirmation email sent."
+                                  rows={3}
+                                  className={WIZARD_INPUT_CLASS}
+                                />
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    className={`${WIZARD_PRIMARY_BUTTON_CLASS} px-3.5 py-2 text-xs`}
+                                    disabled={saving || !replyDraft.trim()}
+                                    onClick={() => handleSaveReply(item.id)}
+                                  >
+                                    {saving ? "Saving…" : "Save reply"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={`${WIZARD_OUTLINE_BUTTON_CLASS} px-3.5 py-2 text-xs`}
+                                    onClick={() => { setReplyingId(null); setReplyDraft(""); }}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-start gap-2">
+                                {item.status === "new" && (
+                                  <button
+                                    type="button"
+                                    disabled={acknowledgingId === item.id}
+                                    className={`${WIZARD_OUTLINE_BUTTON_CLASS} px-3.5 py-2 text-xs`}
+                                    onClick={() => handleAcknowledge(item.id)}
+                                  >
+                                    {acknowledgingId === item.id ? "Acknowledging…" : "Acknowledge"}
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   className={`${WIZARD_PRIMARY_BUTTON_CLASS} px-3.5 py-2 text-xs`}
-                                  disabled={saving || !replyDraft.trim()}
-                                  onClick={() => handleSaveReply(item.id)}
+                                  onClick={() => { setReplyingId(item.id); setReplyDraft(""); }}
                                 >
-                                  {saving ? "Saving…" : "Save reply"}
-                                </button>
-                                <button
-                                  type="button"
-                                  className={`${WIZARD_OUTLINE_BUTTON_CLASS} px-3.5 py-2 text-xs`}
-                                  onClick={() => { setReplyingId(null); setReplyDraft(""); }}
-                                >
-                                  Cancel
+                                  Add reply
                                 </button>
                               </div>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              className={`${WIZARD_OUTLINE_BUTTON_CLASS} px-3.5 py-2 text-xs`}
-                              onClick={() => { setReplyingId(item.id); setReplyDraft(""); }}
-                            >
-                              Add reply
-                            </button>
-                          )}
-                        </td>
-                      </tr>
+                            )}
+                          </td>
+                        </tr>
+                        {expandedId === item.id && (
+                          <tr>
+                            <td colSpan={6} className="bg-cream px-4 py-4">
+                              <p className="mb-2 font-manrope text-xs font-bold uppercase tracking-wide text-warm-muted">
+                                Full conversation history
+                              </p>
+                              {loadingHistoryId === item.id ? (
+                                <p className="font-manrope text-sm text-warm-muted">Loading…</p>
+                              ) : !expandedMessages[item.id] || expandedMessages[item.id].length === 0 ? (
+                                <p className="font-manrope text-sm text-warm-muted">No message history.</p>
+                              ) : (
+                                <div className="max-h-80 space-y-2.5 overflow-y-auto">
+                                  {expandedMessages[item.id].map((m) => (
+                                    <div key={m.id} className={`rounded-lg px-3 py-2 font-manrope text-sm ${bubbleClass(m.role)}`}>
+                                      <p className="mb-1 font-manrope text-[10px] font-bold uppercase tracking-wide text-warm-muted">
+                                        {roleLabel(m.role)}
+                                      </p>
+                                      <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>

@@ -231,6 +231,12 @@ export async function POST(req: NextRequest) {
   let botUserId: string | null = null;
   let userMsgId: string | null = null;
   let supportJustForwarded = false;
+  let firstHumanEscalation = false;
+  // The real, server-generated id of whichever assistant message this response carries —
+  // exposed back to the client so it can recognize this exact message (by id, not by
+  // fragile content matching) when the background sync poll later re-fetches it, and skip
+  // re-adding a duplicate of what it already rendered optimistically.
+  let lastAssistantMsgId: string | null = null;
 
   try {
     const body = await req.json().catch(() => ({}));
@@ -392,10 +398,11 @@ export async function POST(req: NextRequest) {
       );
       if (detectsHumanRequest(question)) {
         try {
-          await conn2.execute(
+          const [updateResult] = await conn2.execute(
             "UPDATE conversations SET requests_human = 1 WHERE id = ? AND requests_human = 0",
             [conversationId]
           );
+          firstHumanEscalation = (updateResult as { affectedRows?: number })?.affectedRows === 1;
         } catch {
           // Column not yet migrated — safe to ignore.
         }
@@ -415,6 +422,7 @@ export async function POST(req: NextRequest) {
         const ack =
           "Thanks for your message — a team member is handling this chat and will reply here shortly.";
         const assistantMsgId = randomUUID();
+        lastAssistantMsgId = assistantMsgId;
         const connAck = await getDbConnection();
         try {
           await connAck.execute(
@@ -438,10 +446,51 @@ export async function POST(req: NextRequest) {
           "Access-Control-Allow-Methods": "POST, OPTIONS",
           "Access-Control-Allow-Headers": "Content-Type",
           "Access-Control-Expose-Headers":
-            "X-Conversation-Id, X-Ticket-Ref, X-Handoff-Mode, X-Forwarded-Support, X-Forwarded-At, X-Needs-Forward-Form",
+            "X-Conversation-Id, X-Ticket-Ref, X-Handoff-Mode, X-Forwarded-Support, X-Forwarded-At, X-Needs-Forward-Form, X-Assistant-Message-Id, X-User-Message-Id",
           "X-Handoff-Mode": "human",
         };
         if (conversationId) headers["X-Conversation-Id"] = conversationId;
+        if (ticketRef) headers["X-Ticket-Ref"] = ticketRef;
+        if (lastAssistantMsgId) headers["X-Assistant-Message-Id"] = lastAssistantMsgId;
+        if (userMsgId) headers["X-User-Message-Id"] = userMsgId;
+        return new Response(stream, { headers });
+      }
+
+      // Guarantee an immediate, consistent acknowledgment the moment a conversation escalates —
+      // don't leave it to the AI's own reply, which may not mention the handoff at all.
+      if (firstHumanEscalation) {
+        const ack =
+          "Got it — I've let our team know you'd like to speak with someone. They'll join this chat as soon as they're available.";
+        const assistantMsgId = randomUUID();
+        lastAssistantMsgId = assistantMsgId;
+        const connAck = await getDbConnection();
+        try {
+          await connAck.execute(
+            "INSERT INTO chat_messages (id, conversation_id, role, content) VALUES (?, ?, 'assistant', ?)",
+            [assistantMsgId, conversationId, ack]
+          );
+        } finally {
+          await connAck.end();
+        }
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(encoder.encode(ack));
+            controller.close();
+          },
+        });
+        const headers: Record<string, string> = {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-store",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+          "Access-Control-Expose-Headers":
+            "X-Conversation-Id, X-Ticket-Ref, X-Handoff-Mode, X-Forwarded-Support, X-Forwarded-At, X-Needs-Forward-Form, X-Assistant-Message-Id, X-User-Message-Id",
+        };
+        if (conversationId) headers["X-Conversation-Id"] = conversationId;
+        if (lastAssistantMsgId) headers["X-Assistant-Message-Id"] = lastAssistantMsgId;
+        if (userMsgId) headers["X-User-Message-Id"] = userMsgId;
         if (ticketRef) headers["X-Ticket-Ref"] = ticketRef;
         return new Response(stream, { headers });
       }
@@ -642,6 +691,7 @@ ${websiteContext}
       try {
         const conn = await getDbConnection();
         const assistantMsgId = randomUUID();
+        lastAssistantMsgId = assistantMsgId;
         await conn.execute(
           "INSERT INTO chat_messages (id, conversation_id, role, content) VALUES (?, ?, 'assistant', ?)",
           [assistantMsgId, conversationId, assistantContent]
@@ -705,10 +755,12 @@ ${websiteContext}
       "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
       "Access-Control-Expose-Headers":
-        "X-Conversation-Id, X-Ticket-Ref, X-Handoff-Mode, X-Forwarded-Support, X-Forwarded-At, X-Needs-Forward-Form",
+        "X-Conversation-Id, X-Ticket-Ref, X-Handoff-Mode, X-Forwarded-Support, X-Forwarded-At, X-Needs-Forward-Form, X-Assistant-Message-Id, X-User-Message-Id",
     };
     if (conversationId) headers["X-Conversation-Id"] = conversationId;
     if (ticketRef) headers["X-Ticket-Ref"] = ticketRef;
+    if (lastAssistantMsgId) headers["X-Assistant-Message-Id"] = lastAssistantMsgId;
+    if (userMsgId) headers["X-User-Message-Id"] = userMsgId;
     headers["X-Handoff-Mode"] = "ai";
     if (supportJustForwarded) {
       headers["X-Forwarded-Support"] = "1";
