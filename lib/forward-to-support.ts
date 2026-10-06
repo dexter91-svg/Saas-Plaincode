@@ -32,11 +32,11 @@ async function sendForwardEmail(args: {
   preview: string;
   conversationText: string;
   resendApiKey?: string | null;
+  priority?: "normal" | "high";
 }): Promise<boolean> {
   const token = createForwardToken(args.conversationId);
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const link = `${baseUrl}/forwarded-conversations?id=${args.conversationId}&token=${token}`;
-
 
   const apiKey = args.resendApiKey?.trim() || process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -46,26 +46,42 @@ async function sendForwardEmail(args: {
   const msgText = args.customerMessage?.trim() || null;
   const previewText = args.preview?.replace(/\s+/g, " ").trim() || null;
   const showPreview = previewText && previewText !== msgText;
+  const isHigh = args.priority === "high";
+  const cleanOrder = args.orderRef?.trim() ? args.orderRef.trim().replace(/^#/, "") : null;
+  const priorityTag = isHigh ? "[High Priority] " : "";
+
+  // Helpdesk-compatible consistent subject line:
+  // e.g. "[Plainbot Escalation] Order #12345 — Sarah T."
+  let subject: string;
+  if (cleanOrder) {
+    subject = `[Plainbot Escalation] ${priorityTag}Order #${cleanOrder} — ${args.customer}`.replace(/\s+/g, " ");
+  } else if (args.ticketRef) {
+    subject = `[Plainbot Escalation] ${priorityTag}Ticket #${args.ticketRef.replace(/^#/, "")} — ${args.customer}`.replace(/\s+/g, " ");
+  } else {
+    subject = `[Plainbot Escalation] ${priorityTag}${args.customer}`.replace(/\s+/g, " ");
+  }
+
+  // Structured helpdesk ticket body with clear metadata fields and transcript
   const emailBody = [
-    "Forwarded conversation (customer submitted contact form)",
-    args.ticketRef ? `Ticket: #${args.ticketRef}` : "",
-    `Customer: ${args.customer}`,
-    `Email: ${args.customerEmail}`,
-    args.orderRef ? `Order/Ref: ${args.orderRef}` : "",
-    msgText ? `Message: ${msgText}` : "",
-    showPreview ? `Preview: ${previewText}` : "",
+    "==================================================",
+    isHigh ? "[PLAINBOT ESCALATION - HIGH PRIORITY]" : "[PLAINBOT ESCALATION]",
+    "==================================================",
+    `Customer: ${args.customer} <${args.customerEmail}>`,
+    cleanOrder ? `Order: #${cleanOrder}` : "Order: Not provided",
+    args.ticketRef ? `Ticket Ref: #${args.ticketRef}` : "",
+    `Priority: ${isHigh ? "High (Refund / Attention Required)" : "Normal"}`,
+    `Dashboard Link: ${link}`,
     "",
-    `View & Reply (Read-Only): ${link}`,
-    "",
-    args.conversationText ? `Full conversation:\n${args.conversationText}` : "",
+    msgText ? `Customer Note:\n${msgText}\n` : "",
+    showPreview ? `Preview:\n${previewText}\n` : "",
+    "==================================================",
+    "CONVERSATION TRANSCRIPT",
+    "==================================================",
+    args.conversationText || "No prior conversation messages.",
+    "==================================================",
   ]
     .filter(Boolean)
     .join("\n");
-  const subject = args.ticketRef
-    ? `Forwarded Ticket #${args.ticketRef} [conv:${args.conversationId}] ${args.preview.slice(0, 40)}${
-        args.preview.length > 40 ? "…" : ""
-      }`
-    : `Forwarded [conv:${args.conversationId}] ${args.preview.slice(0, 50)}${args.preview.length > 50 ? "…" : ""}`;
 
   const resendAbort = new AbortController();
   const resendTimeout = setTimeout(() => resendAbort.abort(), 60_000);
@@ -79,6 +95,7 @@ async function sendForwardEmail(args: {
       body: JSON.stringify({
         from: process.env.EMAIL_FROM || "onboarding@resend.dev",
         to: [args.to],
+        reply_to: args.customerEmail,
         subject,
         text: emailBody,
       }),
@@ -114,16 +131,33 @@ export async function submitForwardToSupport(
   console.log(`\n--- [FORWARD LINK FOR DEVELOPMENT (submitForwardToSupport)] ---\n${link}\n---------------------------------------\n`);
 
 
-  const [existing] = await conn.execute(
-    `SELECT id, customer_email AS customerEmail, ticket_ref AS ticketRef
-     FROM forwarded_conversations
-     WHERE conversation_id = ? AND user_id = ?
-     LIMIT 1`,
-    [input.conversationId, input.userId]
-  );
-  const existingRow = Array.isArray(existing) && existing.length > 0
-    ? (existing[0] as { id: string; customerEmail: string | null; ticketRef: string | null })
-    : null;
+  let existingRow: { id: string; customerEmail: string | null; ticketRef: string | null; priority?: string | null } | null = null;
+  try {
+    const [existing] = await conn.execute(
+      `SELECT id, customer_email AS customerEmail, ticket_ref AS ticketRef, priority
+       FROM forwarded_conversations
+       WHERE conversation_id = ? AND user_id = ?
+       LIMIT 1`,
+      [input.conversationId, input.userId]
+    );
+    existingRow = Array.isArray(existing) && existing.length > 0
+      ? (existing[0] as { id: string; customerEmail: string | null; ticketRef: string | null; priority?: string | null })
+      : null;
+  } catch (err: unknown) {
+    const e = err as { code?: string };
+    if (e?.code === "ER_BAD_FIELD_ERROR") {
+      const [existing] = await conn.execute(
+        `SELECT id, customer_email AS customerEmail, ticket_ref AS ticketRef
+         FROM forwarded_conversations
+         WHERE conversation_id = ? AND user_id = ?
+         LIMIT 1`,
+        [input.conversationId, input.userId]
+      );
+      existingRow = Array.isArray(existing) && existing.length > 0
+        ? (existing[0] as { id: string; customerEmail: string | null; ticketRef: string | null; priority?: string | null })
+        : null;
+    } else throw err;
+  }
 
   if (existingRow?.customerEmail?.trim()) {
     const token = createForwardToken(input.conversationId);
@@ -206,6 +240,7 @@ export async function submitForwardToSupport(
 
   let emailSent = false;
   if (forwardEmail) {
+    const isHigh = existingRow?.priority === "high";
     emailSent = await sendForwardEmail({
       to: forwardEmail,
       conversationId: input.conversationId,
@@ -217,6 +252,7 @@ export async function submitForwardToSupport(
       preview,
       conversationText,
       resendApiKey,
+      priority: isHigh ? "high" : "normal",
     });
   }
 
@@ -233,6 +269,7 @@ export async function createPendingForwardFromChat(
     conversationId: string;
     customer: string;
     preview: string;
+    priority?: "normal" | "high";
   }
 ): Promise<{ ticketRef: string; forwardId: string }> {
   const [existingFwd] = await conn.execute(
@@ -243,12 +280,19 @@ export async function createPendingForwardFromChat(
     ? (existingFwd[0] as { id: string; ticketRef: string | null })
     : null;
   if (existing) {
+    if (args.priority === "high") {
+      await conn.execute(
+        "UPDATE forwarded_conversations SET priority = 'high' WHERE id = ?",
+        [existing.id]
+      ).catch(() => {});
+    }
     return {
       ticketRef: existing.ticketRef || "",
       forwardId: existing.id,
     };
   }
 
+  const priority = args.priority || "normal";
   const ticketId = randomUUID();
   const ticketRefVal = "TK-" + ticketId.slice(0, 8).toUpperCase();
   await conn.execute(
@@ -258,9 +302,9 @@ export async function createPendingForwardFromChat(
   );
   const forwardId = randomUUID();
   await conn.execute(
-    `INSERT INTO forwarded_conversations (id, user_id, conversation_id, customer, customer_email, preview, forwarded_as, ticket_ref)
-     VALUES (?, ?, ?, ?, NULL, ?, 'email', ?)`,
-    [forwardId, args.userId, args.conversationId, args.customer, args.preview, ticketRefVal]
+    `INSERT INTO forwarded_conversations (id, user_id, conversation_id, customer, customer_email, preview, forwarded_as, ticket_ref, priority)
+     VALUES (?, ?, ?, ?, NULL, ?, 'email', ?, ?)`,
+    [forwardId, args.userId, args.conversationId, args.customer, args.preview, ticketRefVal, priority]
   );
   await conn.execute("UPDATE conversations SET status = 'forwarded' WHERE id = ?", [args.conversationId]);
   return { ticketRef: ticketRefVal, forwardId };

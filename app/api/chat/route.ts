@@ -22,7 +22,7 @@ export const maxDuration = 120;
 const modelFromEnv = process.env.OPENAI_MODEL || "gpt-4o";
 
 const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY || "missing-key",
 });
 
 async function enforceGuardRailsOrRewrite(args: {
@@ -260,12 +260,14 @@ export async function POST(req: NextRequest) {
 
     if (chatbotId) {
       const conn = await getDbConnection();
-      type BotRow = { id: string; userId: string; personality: string; language?: string | null; guardRails?: string | null; uploadedDocsText?: string | null; websiteUrl: string | null; websiteTitle: string | null; websiteDescription: string | null; websiteContent: string | null; productsJson: string | null };
+      type BotRow = { id: string; userId: string; personality: string; language?: string | null; guardRails?: string | null; uploadedDocsText?: string | null; websiteUrl: string | null; websiteTitle: string | null; websiteDescription: string | null; websiteContent: string | null; productsJson: string | null; refundEnabled?: number | null; refundMaxAmount?: number | null; refundWindowDays?: number | null };
       let bots: BotRow[];
       try {
         const [rows] = await conn.execute(
           `SELECT id, user_id AS userId, personality, language, guard_rails AS guardRails, uploaded_docs_text AS uploadedDocsText, website_url AS websiteUrl, website_title AS websiteTitle, website_description AS websiteDescription,
-           website_content AS websiteContent, products_json AS productsJson FROM chatbots WHERE id = ? AND is_active = 1`,
+           website_content AS websiteContent, products_json AS productsJson,
+           refund_enabled AS refundEnabled, refund_max_amount AS refundMaxAmount, refund_window_days AS refundWindowDays
+           FROM chatbots WHERE id = ? AND is_active = 1`,
           [chatbotId]
         );
         bots = rows as BotRow[];
@@ -277,7 +279,7 @@ export async function POST(req: NextRequest) {
              website_content AS websiteContent, products_json AS productsJson FROM chatbots WHERE id = ? AND is_active = 1`,
             [chatbotId]
           );
-          bots = (rows as Record<string, unknown>[]).map((r) => ({ ...r, guardRails: null, uploadedDocsText: null, language: "en" })) as BotRow[];
+          bots = (rows as Record<string, unknown>[]).map((r) => ({ ...r, guardRails: null, uploadedDocsText: null, language: "en", refundEnabled: 0, refundMaxAmount: null, refundWindowDays: null })) as BotRow[];
         } else throw err;
       }
 
@@ -317,6 +319,11 @@ export async function POST(req: NextRequest) {
         (scrapedData as { guardRails?: string }).guardRails = bot.guardRails.trim();
       }
       (scrapedData as { language?: string }).language = bot.language ?? "en";
+      if (bot.refundEnabled) {
+        (scrapedData as { refundEnabled?: number; refundMaxAmount?: number | null; refundWindowDays?: number | null }).refundEnabled = bot.refundEnabled;
+        (scrapedData as { refundMaxAmount?: number | null }).refundMaxAmount = bot.refundMaxAmount ?? null;
+        (scrapedData as { refundWindowDays?: number | null }).refundWindowDays = bot.refundWindowDays ?? null;
+      }
       persistMessages = true;
 
       const conn2 = await getDbConnection();
@@ -601,12 +608,39 @@ If the question is unclear → ask one short clarifying question before answerin
 RECENT CONVERSATION (if present above):
 - The messages above are this same chat session. If the user asks what you discussed, to recap, or "what we talked about", briefly summarize the earlier turns in your own words—do not say "we haven't discussed anything" if those messages exist.
 
+REFUND_RULES_PLACEHOLDER
+
 FORWARD TO SUPPORT (order / account / human actions only):
 - Use this flow ONLY when the user needs a human for their order, account, refund/return on a purchase, shipping status, complaint about service, or similar—not when they asked a store-facts question and the answer was simply missing from the website data.
 - When the user needs something only a human can do (e.g. cancel my order, my order is late, refund, return, complaint, account change, dispute), tell them briefly that a contact form will appear below to send their details to the team. Do NOT ask them to type their email in the chat—the form collects name, email, order ref, and message. End your reply with exactly this on a new line: [FORWARD_TO_SUPPORT]. This marker is removed from what the user sees; a form is shown; after they submit, the conversation is emailed to support and they can get replies in this chat.
 - For normal product, catalog, price, or policy questions—including when the answer is "we don't have that detail in this chat"—do NOT add [FORWARD_TO_SUPPORT] and do not imply email forward/handoff.
 
 TONE: Professional, clear, helpful, business-aligned, confident.`;
+
+    const refundEnabled = !!(scrapedData as { refundEnabled?: number } | null)?.refundEnabled;
+    const refundMaxAmount = (scrapedData as { refundMaxAmount?: number | null } | null)?.refundMaxAmount ?? null;
+    const refundWindowDays = (scrapedData as { refundWindowDays?: number | null } | null)?.refundWindowDays ?? null;
+    let refundSection = "";
+    if (refundEnabled) {
+      const amtLine = refundMaxAmount != null ? `- Maximum refund amount: $${refundMaxAmount}` : "- Maximum refund amount: no limit";
+      const windowLine = refundWindowDays != null ? `- Return window: ${refundWindowDays} days from purchase date` : "- Return window: no time limit";
+      refundSection = `REFUND POLICY — AI-assisted decisions:
+You can approve or escalate refund/return requests based on these rules:
+${amtLine}
+${windowLine}
+
+When a customer mentions a refund, return, or wants money back:
+1. If you don't yet have their order number, purchase amount, and purchase date — ask for them naturally. The customer may share this across several messages; wait until you have all three before deciding.
+2. Once you have all three pieces of information, evaluate:
+   - Amount within limit AND purchase date within the return window → approve. End your reply with [REFUND_APPROVED] on its own line.
+   - Otherwise (amount too high, or outside window, or rules unclear) → tell the customer it needs team review and a contact form will appear. End your reply with [REFUND_ESCALATE] on its own line.
+3. [REFUND_APPROVED] and [REFUND_ESCALATE] are invisible system markers — the customer never sees them. Use exactly one per qualifying response, at the very end.
+4. When approving: confirm the refund is approved and say our team will process it shortly. Do NOT also add [FORWARD_TO_SUPPORT].
+5. When escalating: say the case needs review and a form will appear. Do NOT also add [FORWARD_TO_SUPPORT].
+
+`;
+    }
+    const systemPromptWithRefund = systemPrompt.replace("REFUND_RULES_PLACEHOLDER\n\n", refundSection);
 
     const ownerInstructionsBlock = guardRailsText
       ? `=== MANDATORY STORE OWNER INSTRUCTIONS (HIGHEST PRIORITY) ===
@@ -619,7 +653,7 @@ ${guardRailsText}
 `
       : "";
 
-    const fullPrompt = `${ownerInstructionsBlock}${systemPrompt}
+    const fullPrompt = `${ownerInstructionsBlock}${systemPromptWithRefund}
 
 === WEBSITE DATA (your only source — use this and nothing else) ===
 
@@ -684,7 +718,13 @@ ${websiteContext}
 
     const finalRaw = checkedAnswer || draftAnswer || "";
     const hasForwardMarker = /\[FORWARD_TO_SUPPORT\]/i.test(finalRaw);
-    const assistantContent = finalRaw.replace(/\s*\[FORWARD_TO_SUPPORT\]\s*$/i, "").trim();
+    const hasRefundApproved = /\[REFUND_APPROVED\]/i.test(finalRaw);
+    const hasRefundEscalate = /\[REFUND_ESCALATE\]/i.test(finalRaw);
+    const assistantContent = finalRaw
+      .replace(/\s*\[FORWARD_TO_SUPPORT\]\s*$/i, "")
+      .replace(/\s*\[REFUND_APPROVED\]\s*$/i, "")
+      .replace(/\s*\[REFUND_ESCALATE\]\s*$/i, "")
+      .trim();
 
     // Persist assistant message (and forward-to-support logic) before responding.
     if (persistMessages && conversationId && assistantContent) {
@@ -696,7 +736,7 @@ ${websiteContext}
           "INSERT INTO chat_messages (id, conversation_id, role, content) VALUES (?, ?, 'assistant', ?)",
           [assistantMsgId, conversationId, assistantContent]
         );
-        if (hasForwardMarker && botUserId) {
+        if ((hasForwardMarker || hasRefundApproved || hasRefundEscalate) && botUserId) {
           const [msgRows] = await conn.execute(
             "SELECT role, content FROM chat_messages WHERE conversation_id = ? ORDER BY created_at ASC",
             [conversationId]
@@ -708,14 +748,18 @@ ${websiteContext}
           const customer = customerEmail
             ? (customerEmail.split("@")[0] || "Chat user").replace(/[._-]+/g, " ").trim() || "Chat user"
             : "Chat user";
+          const isRefundAction = hasRefundApproved || hasRefundEscalate;
           const pending = await createPendingForwardFromChat(conn, {
             userId: botUserId,
             conversationId,
             customer,
             preview,
+            priority: isRefundAction ? "high" : "normal",
           });
           ticketRef = pending.ticketRef;
-          supportJustForwarded = true;
+          if (hasForwardMarker || hasRefundEscalate) {
+            supportJustForwarded = true;
+          }
         } else {
           await conn.execute(
             "UPDATE tickets SET status = 'resolved', outcome = 'Resolved by AI' WHERE conversation_id = ?",
@@ -755,7 +799,7 @@ ${websiteContext}
       "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
       "Access-Control-Expose-Headers":
-        "X-Conversation-Id, X-Ticket-Ref, X-Handoff-Mode, X-Forwarded-Support, X-Forwarded-At, X-Needs-Forward-Form, X-Assistant-Message-Id, X-User-Message-Id",
+        "X-Conversation-Id, X-Ticket-Ref, X-Handoff-Mode, X-Forwarded-Support, X-Forwarded-At, X-Needs-Forward-Form, X-Assistant-Message-Id, X-User-Message-Id, X-Refund-Approved",
     };
     if (conversationId) headers["X-Conversation-Id"] = conversationId;
     if (ticketRef) headers["X-Ticket-Ref"] = ticketRef;
@@ -766,6 +810,9 @@ ${websiteContext}
       headers["X-Forwarded-Support"] = "1";
       headers["X-Forwarded-At"] = new Date().toISOString();
       headers["X-Needs-Forward-Form"] = "1";
+    }
+    if (hasRefundApproved) {
+      headers["X-Refund-Approved"] = "1";
     }
 
     return new Response(stream, { headers });

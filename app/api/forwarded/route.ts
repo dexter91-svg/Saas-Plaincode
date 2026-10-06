@@ -17,15 +17,34 @@ export async function GET(req: NextRequest) {
       ? " INNER JOIN conversations conv ON conv.id = forwarded_conversations.conversation_id AND conv.chatbot_id = ?"
       : " LEFT JOIN conversations conv ON conv.id = forwarded_conversations.conversation_id";
     const params: string[] = chatbotId ? [chatbotId, auth.userId] : [auth.userId];
-    const [rows] = await conn.execute(
-      `SELECT forwarded_conversations.id, forwarded_conversations.conversation_id AS conversationId, conv.chatbot_id AS chatbotId,
-       forwarded_conversations.customer, forwarded_conversations.customer_email AS customerEmail, forwarded_conversations.preview,
-       forwarded_conversations.forwarded_as AS forwardedAs, forwarded_conversations.ticket_ref AS ticketRef, forwarded_conversations.order_ref AS orderRef,
-       forwarded_conversations.reply_text AS replyText, forwarded_conversations.replied_at AS repliedAt,
-       forwarded_conversations.acknowledged_at AS acknowledgedAt, forwarded_conversations.created_at AS createdAt
-       FROM forwarded_conversations${joinSql} WHERE forwarded_conversations.user_id = ? ORDER BY forwarded_conversations.created_at DESC`,
-      params
-    );
+    let rows: unknown[] = [];
+    try {
+      const [res] = await conn.execute(
+        `SELECT forwarded_conversations.id, forwarded_conversations.conversation_id AS conversationId, conv.chatbot_id AS chatbotId,
+         forwarded_conversations.customer, forwarded_conversations.customer_email AS customerEmail, forwarded_conversations.preview,
+         forwarded_conversations.forwarded_as AS forwardedAs, forwarded_conversations.ticket_ref AS ticketRef, forwarded_conversations.order_ref AS orderRef,
+         forwarded_conversations.reply_text AS replyText, forwarded_conversations.replied_at AS repliedAt,
+         forwarded_conversations.acknowledged_at AS acknowledgedAt, forwarded_conversations.created_at AS createdAt,
+         forwarded_conversations.priority AS priority
+         FROM forwarded_conversations${joinSql} WHERE forwarded_conversations.user_id = ? ORDER BY forwarded_conversations.created_at DESC`,
+        params
+      );
+      rows = res as unknown[];
+    } catch (err: unknown) {
+      const e = err as { code?: string };
+      if (e?.code === "ER_BAD_FIELD_ERROR") {
+        const [res] = await conn.execute(
+          `SELECT forwarded_conversations.id, forwarded_conversations.conversation_id AS conversationId, conv.chatbot_id AS chatbotId,
+           forwarded_conversations.customer, forwarded_conversations.customer_email AS customerEmail, forwarded_conversations.preview,
+           forwarded_conversations.forwarded_as AS forwardedAs, forwarded_conversations.ticket_ref AS ticketRef, forwarded_conversations.order_ref AS orderRef,
+           forwarded_conversations.reply_text AS replyText, forwarded_conversations.replied_at AS repliedAt,
+           forwarded_conversations.acknowledged_at AS acknowledgedAt, forwarded_conversations.created_at AS createdAt
+           FROM forwarded_conversations${joinSql} WHERE forwarded_conversations.user_id = ? ORDER BY forwarded_conversations.created_at DESC`,
+          params
+        );
+        rows = res as unknown[];
+      } else throw err;
+    }
     await conn.end();
 
     type Row = {
@@ -42,6 +61,7 @@ export async function GET(req: NextRequest) {
       repliedAt: string | null;
       acknowledgedAt: string | null;
       createdAt: string;
+      priority?: string | null;
     };
 
     // The dashboard's real status: New (just landed) -> Acknowledged (merchant has seen it,
@@ -66,6 +86,7 @@ export async function GET(req: NextRequest) {
     const list = (rows as Row[]).map((r) => {
       const sla = slaFor(r.createdAt, r.repliedAt);
       const status = statusFor(r.repliedAt, r.acknowledgedAt);
+      const priority = r.priority === "high" ? ("high" as const) : ("normal" as const);
       return {
         id: r.id,
         conversationId: r.conversationId,
@@ -83,6 +104,7 @@ export async function GET(req: NextRequest) {
         status,
         slaStatus: sla.slaStatus,
         slaPriority: sla.slaPriority,
+        priority,
       };
     });
 
@@ -90,6 +112,11 @@ export async function GET(req: NextRequest) {
       const pa = STATUS_PRIORITY[a.status];
       const pb = STATUS_PRIORITY[b.status];
       if (pa !== pb) return pa - pb;
+      // High priority items come first within active status
+      if (a.status !== "resolved") {
+        if (a.priority === "high" && b.priority !== "high") return -1;
+        if (b.priority === "high" && a.priority !== "high") return 1;
+      }
       if (a.slaPriority !== b.slaPriority) return b.slaPriority - a.slaPriority;
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     });

@@ -22,7 +22,7 @@ const MAX_CATALOG_CHARS = 12_000;
 
 type SourceType = "website" | "document" | "catalog";
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "missing-key" });
 
 function isRagTableMissingError(e: unknown): boolean {
   return (e as { code?: string })?.code === "ER_NO_SUCH_TABLE";

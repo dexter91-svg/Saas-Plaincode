@@ -26,6 +26,7 @@ type ForwardedItem = {
   status: EscalationStatus;
   slaStatus: SlaStatus;
   slaPriority: number;
+  priority?: "normal" | "high";
 };
 
 type ChatMsg = {
@@ -34,6 +35,17 @@ type ChatMsg = {
   content: string;
   createdAt?: string;
 };
+
+// High-priority tag for refund escalations and critical requests
+function priorityBadge(priority?: "normal" | "high") {
+  if (priority !== "high") return null;
+  return (
+    <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 font-manrope text-[11px] font-bold text-red-700">
+      <span className="h-1.5 w-1.5 rounded-full bg-red-600 animate-pulse" />
+      High Priority
+    </span>
+  );
+}
 
 // The dashboard's real status — New / Acknowledged / Resolved — is the primary badge shown.
 function statusBadge(s: EscalationStatus) {
@@ -94,6 +106,7 @@ export default function ForwardedConversationsPage({
   
   // Standard states
   const [list, setList] = useState<ForwardedItem[]>([]);
+  const [filter, setFilter] = useState<"all" | "high" | EscalationStatus>("all");
   const [loading, setLoading] = useState(true);
   const [replyingId, setReplyingId] = useState<string | null>(null);
   const [replyDraft, setReplyDraft] = useState("");
@@ -272,11 +285,19 @@ export default function ForwardedConversationsPage({
         <div className="border-b border-ink/[.08]">
           <div className="mx-auto flex max-w-4xl items-center justify-between px-4 pb-4 sm:px-6">
             <span className="font-manrope text-sm font-bold text-ink">Support Agent Portal</span>
-            {publicConv?.ticketRef && (
-              <span className="rounded-full border border-terracotta/20 bg-terracotta/10 px-2.5 py-0.5 font-mono text-xs text-terracotta">
-                Ticket #{publicConv.ticketRef}
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {publicConv?.priority === "high" && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 font-manrope text-xs font-bold text-red-700">
+                  <span className="h-1.5 w-1.5 rounded-full bg-red-600 animate-pulse" />
+                  High Priority
+                </span>
+              )}
+              {publicConv?.ticketRef && (
+                <span className="rounded-full border border-terracotta/20 bg-terracotta/10 px-2.5 py-0.5 font-mono text-xs text-terracotta">
+                  Ticket #{publicConv.ticketRef}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -450,13 +471,70 @@ export default function ForwardedConversationsPage({
             New → Acknowledge it once you&apos;ve seen it → Resolved once you reply. Customers get check-in emails
             at 6h / 12h / 24h if a reply is still outstanding.
           </p>
-          <div className={`mt-6 ${WIZARD_CARD_CLASS} !p-0 overflow-hidden`}>
+
+          {/* Status & Priority Filter Pills */}
+          <div className="mt-6 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setFilter("all")}
+              className={`rounded-full px-3.5 py-1 text-xs font-bold font-manrope transition-colors ${
+                filter === "all" ? "bg-ink text-cream" : "border border-ink/[.12] bg-white text-ink hover:bg-cream-alt"
+              }`}
+            >
+              All ({list.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter("high")}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-bold font-manrope transition-colors ${
+                filter === "high" ? "bg-red-700 text-white" : "border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+              }`}
+            >
+              {list.filter((i) => i.priority === "high" && i.status !== "resolved").length > 0 && (
+                <span className="h-1.5 w-1.5 rounded-full bg-red-600 animate-pulse" />
+              )}
+              High Priority ({list.filter((i) => i.priority === "high").length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter("new")}
+              className={`rounded-full px-3.5 py-1 text-xs font-bold font-manrope transition-colors ${
+                filter === "new" ? "bg-terracotta text-white" : "border border-ink/[.12] bg-white text-ink hover:bg-cream-alt"
+              }`}
+            >
+              New ({list.filter((i) => i.status === "new").length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter("acknowledged")}
+              className={`rounded-full px-3.5 py-1 text-xs font-bold font-manrope transition-colors ${
+                filter === "acknowledged" ? "bg-blue-600 text-white" : "border border-ink/[.12] bg-white text-ink hover:bg-cream-alt"
+              }`}
+            >
+              Acknowledged ({list.filter((i) => i.status === "acknowledged").length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter("resolved")}
+              className={`rounded-full px-3.5 py-1 text-xs font-bold font-manrope transition-colors ${
+                filter === "resolved" ? "bg-sage text-white" : "border border-ink/[.12] bg-white text-ink hover:bg-cream-alt"
+              }`}
+            >
+              Resolved ({list.filter((i) => i.status === "resolved").length})
+            </button>
+          </div>
+
+          <div className={`mt-4 ${WIZARD_CARD_CLASS} !p-0 overflow-hidden`}>
             {loading ? (
               <p className="py-10 text-center font-manrope text-sm text-warm-muted">Loading…</p>
             ) : list.length === 0 ? (
               <p className="px-10 py-10 text-center font-manrope text-sm text-warm-muted">
                 No escalations yet. Forward from the Conversations tab or when the AI can&apos;t help
                 (e.g. order cancellation).
+              </p>
+            ) : list.filter((item) => filter === "all" ? true : filter === "high" ? item.priority === "high" : item.status === filter).length === 0 ? (
+              <p className="px-10 py-10 text-center font-manrope text-sm text-warm-muted">
+                No escalations match this filter.
               </p>
             ) : (
               <div className="overflow-x-auto">
@@ -472,11 +550,14 @@ export default function ForwardedConversationsPage({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-ink/[.08]">
-                    {list.map((item) => (
+                    {list
+                      .filter((item) => filter === "all" ? true : filter === "high" ? item.priority === "high" : item.status === filter)
+                      .map((item) => (
                       <Fragment key={item.id}>
                         <tr>
                           <td className="px-4 py-3.5 align-top">
                             {statusBadge(item.status)}
+                            {priorityBadge(item.priority)}
                             {item.status !== "resolved" && slaHint(item.slaStatus)}
                           </td>
                           <td className="px-4 py-3.5 align-top font-manrope">

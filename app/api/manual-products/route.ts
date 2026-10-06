@@ -8,7 +8,7 @@ const modelFromEnv = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const visionModel = "gpt-4o-mini";
 
 const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY || "missing-key",
 });
 
 export async function POST(req: NextRequest) {

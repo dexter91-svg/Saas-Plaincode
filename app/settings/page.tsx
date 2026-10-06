@@ -87,6 +87,15 @@ export default function SettingsPage() {
   const [resendKeyVisible, setResendKeyVisible] = useState(false);
   const [resendSavedVisible, setResendSavedVisible] = useState(false);
 
+  const [refundEnabled, setRefundEnabled] = useState(false);
+  const [refundMaxAmount, setRefundMaxAmount] = useState("");
+  const [refundWindowDays, setRefundWindowDays] = useState("");
+  const [refundSaving, setRefundSaving] = useState(false);
+  const [refundMessage, setRefundMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
+  const [refundImportText, setRefundImportText] = useState("");
+  const [refundImporting, setRefundImporting] = useState(false);
+  const [refundImportOpen, setRefundImportOpen] = useState(false);
+
   const [notifyEnabled, setNotifyEnabled] = useState(true);
   const [notifySaving, setNotifySaving] = useState(false);
   const [notifyMessage, setNotifyMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
@@ -187,6 +196,72 @@ export default function SettingsPage() {
       setResendMessage({ type: "error", text: e instanceof Error ? e.message : "Failed to save." });
     } finally {
       setResendSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!chatbotId) return;
+    fetch(`/api/chatbots/${chatbotId}/refund-rules`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (typeof data.refundEnabled === "boolean") setRefundEnabled(data.refundEnabled);
+        if (data.refundMaxAmount != null) setRefundMaxAmount(String(data.refundMaxAmount));
+        if (data.refundWindowDays != null) setRefundWindowDays(String(data.refundWindowDays));
+      })
+      .catch(() => {});
+  }, [chatbotId]);
+
+  const saveRefundRules = async () => {
+    if (!chatbotId) return;
+    setRefundMessage(null);
+    setRefundSaving(true);
+    try {
+      const maxAmt = refundMaxAmount.trim() === "" ? null : parseFloat(refundMaxAmount);
+      const winDays = refundWindowDays.trim() === "" ? null : parseInt(refundWindowDays, 10);
+      if (refundMaxAmount.trim() !== "" && (isNaN(maxAmt!) || maxAmt! <= 0)) {
+        setRefundMessage({ type: "error", text: "Max amount must be a positive number." });
+        return;
+      }
+      if (refundWindowDays.trim() !== "" && (isNaN(winDays!) || winDays! < 1)) {
+        setRefundMessage({ type: "error", text: "Return window must be a whole number of days (1 or more)." });
+        return;
+      }
+      const res = await fetch(`/api/chatbots/${chatbotId}/refund-rules`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refundEnabled, refundMaxAmount: maxAmt, refundWindowDays: winDays }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to save.");
+      setRefundMessage({ type: "ok", text: "Refund policy saved." });
+    } catch (e: unknown) {
+      setRefundMessage({ type: "error", text: e instanceof Error ? e.message : "Failed to save." });
+    } finally {
+      setRefundSaving(false);
+    }
+  };
+
+  const importRefundRules = async () => {
+    if (!chatbotId || !refundImportText.trim()) return;
+    setRefundImporting(true);
+    setRefundMessage(null);
+    try {
+      const res = await fetch(`/api/chatbots/${chatbotId}/refund-rules/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ policyText: refundImportText.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to parse policy.");
+      if (data.refundMaxAmount != null) setRefundMaxAmount(String(data.refundMaxAmount));
+      if (data.refundWindowDays != null) setRefundWindowDays(String(data.refundWindowDays));
+      setRefundMessage({ type: "ok", text: `Extracted: ${data.summary || "Rules imported — review and save."}` });
+      setRefundImportOpen(false);
+      setRefundImportText("");
+    } catch (e: unknown) {
+      setRefundMessage({ type: "error", text: e instanceof Error ? e.message : "Failed to import." });
+    } finally {
+      setRefundImporting(false);
     }
   };
 
@@ -659,6 +734,113 @@ export default function SettingsPage() {
               {resendMessage && (
                 <p className={`mt-2 font-manrope text-xs ${resendMessage.type === "ok" ? "text-sage" : "text-red-600"}`}>
                   {resendMessage.text}
+                </p>
+              )}
+            </div>
+
+            {/* Refund policy */}
+            <div className={WIZARD_CARD_CLASS}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="font-manrope text-[15px] font-bold text-ink">Refund policy</h2>
+                  <p className="mt-1.5 font-manrope text-[13px] text-warm-body">
+                    When enabled, the AI collects order details and auto-approves refunds within your rules.
+                    Cases outside the rules are escalated as high-priority tickets.
+                  </p>
+                </div>
+                <label className="mt-0.5 flex shrink-0 cursor-pointer items-center gap-2 font-manrope text-sm font-bold text-ink">
+                  <input
+                    type="checkbox"
+                    className="rounded border-ink/[.25] text-terracotta focus:ring-terracotta/30"
+                    checked={refundEnabled}
+                    onChange={(e) => setRefundEnabled(e.target.checked)}
+                  />
+                  <span className="font-normal text-warm-body">{refundEnabled ? "On" : "Off"}</span>
+                </label>
+              </div>
+
+              {refundEnabled && (
+                <div className="mt-4 space-y-3.5">
+                  <div className="flex flex-wrap gap-3.5">
+                    <div className="flex-1 min-w-[140px]">
+                      <label className="block font-manrope text-xs font-bold text-warm-muted mb-1.5">
+                        Max refund amount ($)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="e.g. 50"
+                        value={refundMaxAmount}
+                        onChange={(e) => setRefundMaxAmount(e.target.value)}
+                        className={WIZARD_INPUT_CLASS}
+                      />
+                      <p className="mt-1 font-manrope text-[11px] text-warm-muted">Leave empty for no limit</p>
+                    </div>
+                    <div className="flex-1 min-w-[140px]">
+                      <label className="block font-manrope text-xs font-bold text-warm-muted mb-1.5">
+                        Return window (days)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        placeholder="e.g. 30"
+                        value={refundWindowDays}
+                        onChange={(e) => setRefundWindowDays(e.target.value)}
+                        className={WIZARD_INPUT_CLASS}
+                      />
+                      <p className="mt-1 font-manrope text-[11px] text-warm-muted">Leave empty for no time limit</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setRefundImportOpen((v) => !v)}
+                      className="font-manrope text-xs font-bold text-terracotta hover:underline"
+                    >
+                      {refundImportOpen ? "▲ Hide import" : "▼ Import rules from policy text"}
+                    </button>
+                    {refundImportOpen && (
+                      <div className="mt-2.5 space-y-2">
+                        <p className="font-manrope text-[12px] text-warm-muted">
+                          Paste your return/refund policy text — the AI will extract the max amount and return window automatically.
+                        </p>
+                        <textarea
+                          rows={4}
+                          placeholder="Paste your refund policy here…"
+                          value={refundImportText}
+                          onChange={(e) => setRefundImportText(e.target.value)}
+                          className={`w-full resize-none ${WIZARD_INPUT_CLASS}`}
+                        />
+                        <button
+                          type="button"
+                          disabled={refundImporting || !refundImportText.trim()}
+                          onClick={importRefundRules}
+                          className={`${WIZARD_OUTLINE_BUTTON_CLASS} px-5 py-2.5 text-xs`}
+                        >
+                          {refundImporting ? "Extracting…" : "Extract rules"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  disabled={refundSaving || !chatbotId}
+                  onClick={saveRefundRules}
+                  className={`${WIZARD_PRIMARY_BUTTON_CLASS} px-5 py-2.5 text-xs`}
+                >
+                  {refundSaving ? "Saving…" : "Save refund policy"}
+                </button>
+              </div>
+              {refundMessage && (
+                <p className={`mt-2 font-manrope text-xs ${refundMessage.type === "ok" ? "text-sage" : "text-red-600"}`}>
+                  {refundMessage.text}
                 </p>
               )}
             </div>
