@@ -609,6 +609,38 @@ async function run() {
       console.log("users.resend_api_key already exists, skip.");
     }
 
+    // 014: refund policy rules on chatbots + priority on forwarded_conversations
+    if (!(await hasColumn(conn, "chatbots", "refund_enabled"))) {
+      console.log("Adding chatbots.refund_enabled...");
+      await conn.execute("ALTER TABLE chatbots ADD COLUMN refund_enabled TINYINT(1) NOT NULL DEFAULT 0");
+      console.log("  OK");
+    } else {
+      console.log("chatbots.refund_enabled already exists, skip.");
+    }
+    if (!(await hasColumn(conn, "chatbots", "refund_max_amount"))) {
+      console.log("Adding chatbots.refund_max_amount...");
+      await conn.execute("ALTER TABLE chatbots ADD COLUMN refund_max_amount DECIMAL(10,2) NULL DEFAULT NULL");
+      console.log("  OK");
+    } else {
+      console.log("chatbots.refund_max_amount already exists, skip.");
+    }
+    if (!(await hasColumn(conn, "chatbots", "refund_window_days"))) {
+      console.log("Adding chatbots.refund_window_days...");
+      await conn.execute("ALTER TABLE chatbots ADD COLUMN refund_window_days INT NULL DEFAULT NULL");
+      console.log("  OK");
+    } else {
+      console.log("chatbots.refund_window_days already exists, skip.");
+    }
+    if (!(await hasColumn(conn, "forwarded_conversations", "priority"))) {
+      console.log("Adding forwarded_conversations.priority...");
+      await conn.execute(
+        "ALTER TABLE forwarded_conversations ADD COLUMN priority VARCHAR(16) NOT NULL DEFAULT 'normal'"
+      );
+      console.log("  OK");
+    } else {
+      console.log("forwarded_conversations.priority already exists, skip.");
+    }
+
     // 009: crawl_logs (every scrape/crawl attempt, for auditing and the Logs page)
     const [crawlLogTables] = await conn.execute(
       "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'crawl_logs'",

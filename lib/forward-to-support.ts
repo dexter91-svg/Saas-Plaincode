@@ -233,6 +233,7 @@ export async function createPendingForwardFromChat(
     conversationId: string;
     customer: string;
     preview: string;
+    priority?: "normal" | "high";
   }
 ): Promise<{ ticketRef: string; forwardId: string }> {
   const [existingFwd] = await conn.execute(
@@ -243,12 +244,19 @@ export async function createPendingForwardFromChat(
     ? (existingFwd[0] as { id: string; ticketRef: string | null })
     : null;
   if (existing) {
+    if (args.priority === "high") {
+      await conn.execute(
+        "UPDATE forwarded_conversations SET priority = 'high' WHERE id = ?",
+        [existing.id]
+      ).catch(() => {});
+    }
     return {
       ticketRef: existing.ticketRef || "",
       forwardId: existing.id,
     };
   }
 
+  const priority = args.priority || "normal";
   const ticketId = randomUUID();
   const ticketRefVal = "TK-" + ticketId.slice(0, 8).toUpperCase();
   await conn.execute(
@@ -258,9 +266,9 @@ export async function createPendingForwardFromChat(
   );
   const forwardId = randomUUID();
   await conn.execute(
-    `INSERT INTO forwarded_conversations (id, user_id, conversation_id, customer, customer_email, preview, forwarded_as, ticket_ref)
-     VALUES (?, ?, ?, ?, NULL, ?, 'email', ?)`,
-    [forwardId, args.userId, args.conversationId, args.customer, args.preview, ticketRefVal]
+    `INSERT INTO forwarded_conversations (id, user_id, conversation_id, customer, customer_email, preview, forwarded_as, ticket_ref, priority)
+     VALUES (?, ?, ?, ?, NULL, ?, 'email', ?, ?)`,
+    [forwardId, args.userId, args.conversationId, args.customer, args.preview, ticketRefVal, priority]
   );
   await conn.execute("UPDATE conversations SET status = 'forwarded' WHERE id = ?", [args.conversationId]);
   return { ticketRef: ticketRefVal, forwardId };
