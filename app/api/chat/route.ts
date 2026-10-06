@@ -22,7 +22,7 @@ export const maxDuration = 120;
 const modelFromEnv = process.env.OPENAI_MODEL || "gpt-4o";
 
 const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY || "missing-key",
 });
 
 async function enforceGuardRailsOrRewrite(args: {

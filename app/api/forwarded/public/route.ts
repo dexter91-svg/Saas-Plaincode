@@ -19,12 +19,25 @@ export async function GET(req: NextRequest) {
     const conn = await getDbConnection();
 
     // Fetch forwarded conversation metadata
-    const [fwdRows] = await conn.execute(
-      `SELECT id, customer, customer_email AS customerEmail, ticket_ref AS ticketRef, order_ref AS orderRef, replied_at AS repliedAt, reply_text AS replyText, created_at AS createdAt
-       FROM forwarded_conversations WHERE conversation_id = ?`,
-      [conversationId]
-    );
-    const fwd = (fwdRows as any[])[0];
+    let fwd: any = null;
+    try {
+      const [fwdRows] = await conn.execute(
+        `SELECT id, customer, customer_email AS customerEmail, ticket_ref AS ticketRef, order_ref AS orderRef, replied_at AS repliedAt, reply_text AS replyText, created_at AS createdAt, priority
+         FROM forwarded_conversations WHERE conversation_id = ?`,
+        [conversationId]
+      );
+      fwd = (fwdRows as any[])[0];
+    } catch (err: unknown) {
+      const e = err as { code?: string };
+      if (e?.code === "ER_BAD_FIELD_ERROR") {
+        const [fwdRows] = await conn.execute(
+          `SELECT id, customer, customer_email AS customerEmail, ticket_ref AS ticketRef, order_ref AS orderRef, replied_at AS repliedAt, reply_text AS replyText, created_at AS createdAt
+           FROM forwarded_conversations WHERE conversation_id = ?`,
+          [conversationId]
+        );
+        fwd = (fwdRows as any[])[0];
+      } else throw err;
+    }
     if (!fwd) {
       await conn.end();
       return NextResponse.json({ error: "Forwarded conversation not found" }, { status: 404 });
@@ -58,6 +71,7 @@ export async function GET(req: NextRequest) {
         repliedAt: fwd.repliedAt,
         replyText: fwd.replyText,
         createdAt: fwd.createdAt,
+        priority: fwd.priority || "normal",
       },
       messages,
     });

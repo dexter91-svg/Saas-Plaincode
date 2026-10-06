@@ -38,3 +38,14 @@ next-env.d.ts
 PHASE_0.md
 today.md
 
+# execution trackers & UAT spreadsheets (not part of codebase)
+*.xlsx
+*.xlsm
+*.xls
+Plaincode's Execution-Tracker*
+
+# internal agent rules & configs
+.agents/
+AGENTS.md
+
+

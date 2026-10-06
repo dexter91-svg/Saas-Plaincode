@@ -5,7 +5,7 @@ import OpenAI from "openai";
 
 export const runtime = "nodejs";
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "missing-key" });
 
 type Params = { params: Promise<{ chatbotId: string }> };
 
