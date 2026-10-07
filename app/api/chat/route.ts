@@ -16,14 +16,11 @@ import { createPendingForwardFromChat } from "@/lib/forward-to-support";
 import { getHandoffMode, toOpenAIHistoryMessages } from "@/lib/conversation-handoff";
 import { detectsHumanRequest } from "@/lib/detect-human-request";
 
+import { generateChatCompletion } from "@/lib/llm-client";
+import { runTriageFunnel } from "@/lib/triage-funnel";
+
 export const runtime = "nodejs";
 export const maxDuration = 120;
-
-const modelFromEnv = process.env.OPENAI_MODEL || "gpt-4o";
-
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || "missing-key",
-});
 
 async function enforceGuardRailsOrRewrite(args: {
   guardRailsText: string;
@@ -51,21 +48,19 @@ Return ONLY valid JSON with this exact schema:
 }`;
 
   try {
-    const completion = await client.chat.completions.create({
-      model: modelFromEnv,
-      temperature: 0,
-      max_tokens: 800,
-      response_format: { type: "json_object" },
+    const res = await generateChatCompletion({
+      systemPrompt: checkerSystem,
       messages: [
-        { role: "system", content: checkerSystem },
         {
           role: "user",
-          content: `STORE OWNER RULES:\n${guard}\n\nUSER QUESTION:\n${args.question}\n\nDRAFT ANSWER:\n${draft}`,
+          content: `STORE OWNER RULES:\n${guard}\n\nUSER QUESTION:\n${args.question}\n\nDRAFT ANSWER:\n${draft}\n\nReturn ONLY the JSON.`,
         },
       ],
+      temperature: 0,
+      maxTokens: 800,
     });
 
-    const raw = completion.choices[0]?.message?.content || "{}";
+    const raw = res.content || "{}";
     let parsed: { action?: "ok" | "rewrite"; rewritten?: string } = {};
     try {
       parsed = JSON.parse(raw);
@@ -218,9 +213,9 @@ export async function POST(req: NextRequest) {
       { status: 429, headers: { ...corsHeaders, "Retry-After": String(rl.retryAfter) } }
     );
   }
-  if (!process.env.OPENAI_API_KEY) {
+  if (!process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json(
-      { error: "OPENAI_API_KEY is not configured on the server." },
+      { error: "No AI API key is configured on the server (please set ANTHROPIC_API_KEY or OPENAI_API_KEY)." },
       { status: 500, headers: corsHeaders }
     );
   }
@@ -503,6 +498,110 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 5-Stage Cost-Optimization Funnel (Tiers 1-4 resolve at $0.00 without calling generative LLM)
+    const triage = runTriageFunnel({
+      question,
+      chatbotId,
+      scrapedData,
+      customerEmail: extractFirstEmailFromMessages([{ role: "user", content: question }]),
+    });
+
+    if (triage.handled) {
+      const triageReply = triage.reply || "";
+      const hasForwardMarker = !!triage.hasForwardMarker;
+      const hasRefundApproved = !!triage.hasRefundApproved;
+      const hasRefundEscalate = !!triage.hasRefundEscalate;
+      const assistantContent = triageReply
+        .replace(/\s*\[FORWARD_TO_SUPPORT\]\s*$/i, "")
+        .replace(/\s*\[REFUND_APPROVED\]\s*$/i, "")
+        .replace(/\s*\[REFUND_ESCALATE\]\s*$/i, "")
+        .trim();
+
+      if (persistMessages && conversationId && assistantContent) {
+        try {
+          const conn = await getDbConnection();
+          const assistantMsgId = randomUUID();
+          lastAssistantMsgId = assistantMsgId;
+          await conn.execute(
+            "INSERT INTO chat_messages (id, conversation_id, role, content) VALUES (?, ?, 'assistant', ?)",
+            [assistantMsgId, conversationId, assistantContent]
+          );
+          if ((hasForwardMarker || hasRefundApproved || hasRefundEscalate) && botUserId) {
+            const [msgRows] = await conn.execute(
+              "SELECT role, content FROM chat_messages WHERE conversation_id = ? ORDER BY created_at ASC",
+              [conversationId]
+            );
+            const msgs = (msgRows as { role: string; content: string }[]) || [];
+            const lastUser = [...msgs].reverse().find((m) => m.role === "user");
+            const preview = (lastUser?.content || question || "Conversation").slice(0, 500);
+            const customerEmail = extractFirstEmailFromMessages(msgs);
+            const customer = customerEmail
+              ? (customerEmail.split("@")[0] || "Chat user").replace(/[._-]+/g, " ").trim() || "Chat user"
+              : "Chat user";
+            const isRefundAction = hasRefundApproved || hasRefundEscalate;
+            const pending = await createPendingForwardFromChat(conn, {
+              userId: botUserId,
+              conversationId,
+              customer,
+              preview,
+              priority: isRefundAction ? "high" : "normal",
+            });
+            ticketRef = pending.ticketRef;
+            if (hasForwardMarker || hasRefundEscalate) {
+              supportJustForwarded = true;
+            }
+          } else {
+            await conn.execute(
+              "UPDATE tickets SET status = 'resolved', outcome = 'Resolved by AI' WHERE conversation_id = ?",
+              [conversationId]
+            );
+          }
+          await conn.end();
+        } catch (err) {
+          console.error("Failed to persist triage assistant message:", err);
+        }
+      }
+
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          const text = assistantContent || "";
+          const chunkSize = 120;
+          for (let i = 0; i < text.length; i += chunkSize) {
+            controller.enqueue(encoder.encode(text.slice(i, i + chunkSize)));
+            await new Promise((r) => setTimeout(r, 0));
+          }
+          controller.close();
+        },
+      });
+
+      const headers: Record<string, string> = {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Expose-Headers":
+          "X-Conversation-Id, X-Ticket-Ref, X-Handoff-Mode, X-Forwarded-Support, X-Forwarded-At, X-Needs-Forward-Form, X-Assistant-Message-Id, X-User-Message-Id, X-Refund-Approved, X-Triage-Tier",
+        "X-Triage-Tier": triage.tier,
+      };
+      if (conversationId) headers["X-Conversation-Id"] = conversationId;
+      if (ticketRef) headers["X-Ticket-Ref"] = ticketRef;
+      if (lastAssistantMsgId) headers["X-Assistant-Message-Id"] = lastAssistantMsgId;
+      if (userMsgId) headers["X-User-Message-Id"] = userMsgId;
+      headers["X-Handoff-Mode"] = "ai";
+      if (supportJustForwarded) {
+        headers["X-Forwarded-Support"] = "1";
+        headers["X-Forwarded-At"] = new Date().toISOString();
+        headers["X-Needs-Forward-Form"] = "1";
+      }
+      if (hasRefundApproved) {
+        headers["X-Refund-Approved"] = "1";
+      }
+
+      return new Response(stream, { headers });
+    }
+
     let websiteContext: string;
     if (chatbotId && RAG_ENABLED && process.env.OPENAI_API_KEY) {
       const connRag = await getDbConnection();
@@ -693,23 +792,21 @@ ${websiteContext}
       }
     }
 
-    const openaiTimeoutMs = 60_000;
-    const openaiAbort = new AbortController();
-    const openaiTimeout = setTimeout(() => openaiAbort.abort(), openaiTimeoutMs);
+    const llmTimeoutMs = 60_000;
+    const llmAbort = new AbortController();
+    const llmTimeout = setTimeout(() => llmAbort.abort(), llmTimeoutMs);
 
-    // Generate full answer first so we can enforce guard-rails BEFORE streaming to the user.
-    const completion = await client.chat.completions.create(
-      {
-        model: modelFromEnv,
-        messages: [{ role: "system", content: fullPrompt }, ...historyMessages, { role: "user", content: question }],
-        temperature: 0.2,
-        max_tokens: 1000,
-      },
-      { signal: openaiAbort.signal }
-    );
-    clearTimeout(openaiTimeout);
+    // Tier 5: Generate full answer using unified LLM client (Anthropic Claude or OpenAI)
+    const completionResult = await generateChatCompletion({
+      systemPrompt: fullPrompt,
+      messages: [...historyMessages, { role: "user", content: question }],
+      temperature: 0.2,
+      maxTokens: 1000,
+      abortSignal: llmAbort.signal,
+    });
+    clearTimeout(llmTimeout);
 
-    const draftAnswer = (completion.choices[0]?.message?.content || "").trim();
+    const draftAnswer = completionResult.content;
     const { answer: checkedAnswer } = await enforceGuardRailsOrRewrite({
       guardRailsText,
       question,
@@ -799,7 +896,8 @@ ${websiteContext}
       "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
       "Access-Control-Expose-Headers":
-        "X-Conversation-Id, X-Ticket-Ref, X-Handoff-Mode, X-Forwarded-Support, X-Forwarded-At, X-Needs-Forward-Form, X-Assistant-Message-Id, X-User-Message-Id, X-Refund-Approved",
+        "X-Conversation-Id, X-Ticket-Ref, X-Handoff-Mode, X-Forwarded-Support, X-Forwarded-At, X-Needs-Forward-Form, X-Assistant-Message-Id, X-User-Message-Id, X-Refund-Approved, X-Triage-Tier",
+      "X-Triage-Tier": "tier5_llm",
     };
     if (conversationId) headers["X-Conversation-Id"] = conversationId;
     if (ticketRef) headers["X-Ticket-Ref"] = ticketRef;
