@@ -10,14 +10,14 @@ export async function POST() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const conn = await getDbConnection();
-    const [rows] = await conn.execute("SELECT escalation_alert_email AS email, resend_api_key AS resendApiKey FROM users WHERE id = ?", [auth.userId]);
+    const [rows] = await conn.execute("SELECT escalation_alert_email AS email FROM users WHERE id = ?", [auth.userId]);
     await conn.end();
-    const row = (rows as { email: string | null; resendApiKey: string | null }[])[0];
+    const row = (rows as { email: string | null }[])[0];
     const email = row?.email?.trim();
     if (!email) {
       return NextResponse.json({ error: "Save an alert email first." }, { status: 400 });
     }
-    const result = await sendEscalationAlertTest(email, row?.resendApiKey);
+    const result = await sendEscalationAlertTest(email);
     if (!result.ok) {
       return NextResponse.json({ error: result.error || "Failed to send test email." }, { status: 502 });
     }

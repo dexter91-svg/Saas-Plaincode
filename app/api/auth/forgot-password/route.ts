@@ -28,10 +28,12 @@ export async function POST(req: NextRequest) {
 
     const conn = await getDbConnection();
     let userId: string | null = null;
+    let userResendApiKey: string | null = null;
     try {
-      const [rows] = await conn.execute("SELECT id FROM users WHERE email = ?", [email]);
-      const u = (rows as { id: string }[])[0];
+      const [rows] = await conn.execute("SELECT id, resend_api_key AS resendApiKey FROM users WHERE email = ?", [email]);
+      const u = (rows as { id: string; resendApiKey: string | null }[])[0];
       userId = u?.id ?? null;
+      userResendApiKey = u?.resendApiKey ?? null;
     } finally {
       await conn.end();
     }
@@ -67,7 +69,7 @@ export async function POST(req: NextRequest) {
       await conn2.end();
     }
 
-    await sendPasswordResetEmail(email, rawToken);
+    await sendPasswordResetEmail(email, rawToken, userResendApiKey);
     return NextResponse.json(generic);
   } catch (err) {
     console.error("forgot-password:", err);

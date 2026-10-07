@@ -4,6 +4,7 @@
  */
 
 import type { BillingPlan } from "@/lib/plans";
+import { postToResend } from "@/lib/resend-request";
 
 const FROM_EMAIL = "hello@plainbot.io";
 
@@ -24,8 +25,12 @@ function getBaseUrl(): string {
   return "https://yourapp.com";
 }
 
-export async function sendFreeWelcomeEmail(to: string, name?: string | null): Promise<{ ok: boolean; error?: string }> {
-  const apiKey = process.env.RESEND_API_KEY;
+export async function sendFreeWelcomeEmail(
+  to: string,
+  name?: string | null,
+  resendApiKey?: string | null
+): Promise<{ ok: boolean; error?: string }> {
+  const apiKey = resendApiKey?.trim() || process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.log("[Welcome email] RESEND_API_KEY missing — Free welcome not sent.");
     return { ok: false, error: "RESEND_API_KEY not set" };
@@ -45,32 +50,19 @@ export async function sendFreeWelcomeEmail(to: string, name?: string | null): Pr
     "— The Plainbot team",
   ].join("\n");
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60_000);
   try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        from: getFrom(),
-        to: [to.trim()],
-        subject: "Welcome to Plainbot",
-        text: body,
-      }),
-      signal: controller.signal,
+    const res = await postToResend("/emails", apiKey, {
+      from: getFrom(),
+      to: [to.trim()],
+      subject: "Welcome to Plainbot",
+      text: body,
     });
-    clearTimeout(timeout);
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      console.error("[Welcome email] Resend failed:", res.status, err);
+      console.error("[Welcome email] Resend failed:", res.status, res.json);
       return { ok: false, error: "Failed to send" };
     }
     return { ok: true };
   } catch (e) {
-    clearTimeout(timeout);
     console.error("[Welcome email] Error:", e);
     return { ok: false, error: "Failed to send" };
   }
@@ -80,9 +72,10 @@ export async function sendFreeWelcomeEmail(to: string, name?: string | null): Pr
 export async function sendPaidPlanWelcomeEmail(
   to: string,
   name: string | null | undefined,
-  plan: Exclude<BillingPlan, "free">
+  plan: Exclude<BillingPlan, "free">,
+  resendApiKey?: string | null
 ): Promise<{ ok: boolean; error?: string }> {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = resendApiKey?.trim() || process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.log("[Welcome email] RESEND_API_KEY missing — paid welcome not sent.");
     return { ok: false, error: "RESEND_API_KEY not set" };
@@ -101,32 +94,19 @@ export async function sendPaidPlanWelcomeEmail(
     "— The Plainbot team",
   ].join("\n");
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60_000);
   try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        from: getFrom(),
-        to: [to.trim()],
-        subject: `Welcome to Plainbot ${label}`,
-        text: body,
-      }),
-      signal: controller.signal,
+    const res = await postToResend("/emails", apiKey, {
+      from: getFrom(),
+      to: [to.trim()],
+      subject: `Welcome to Plainbot ${label}`,
+      text: body,
     });
-    clearTimeout(timeout);
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      console.error("[Paid welcome email] Resend failed:", res.status, err);
+      console.error("[Paid welcome email] Resend failed:", res.status, res.json);
       return { ok: false, error: "Failed to send" };
     }
     return { ok: true };
   } catch (e) {
-    clearTimeout(timeout);
     console.error("[Paid welcome email] Error:", e);
     return { ok: false, error: "Failed to send" };
   }

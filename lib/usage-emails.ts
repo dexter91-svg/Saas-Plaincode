@@ -3,6 +3,8 @@
  * Uses: RESEND_API_KEY, EMAIL_FROM, NEXT_PUBLIC_APP_URL.
  */
 
+import { postToResend } from "@/lib/resend-request";
+
 function getFrom(): string {
   return process.env.EMAIL_FROM || "hello@plainbot.io";
 }
@@ -19,9 +21,10 @@ export type PlanKind = "free" | "pro";
 export async function sendLimitReachedEmail(
   to: string,
   plan: PlanKind,
-  name?: string | null
+  name?: string | null,
+  resendApiKey?: string | null
 ): Promise<{ ok: boolean; error?: string }> {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = resendApiKey?.trim() || process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.log("[Limit reached email] RESEND_API_KEY missing — not sent.");
     return { ok: false, error: "RESEND_API_KEY not set" };
@@ -59,32 +62,14 @@ export async function sendLimitReachedEmail(
         "— The Plainbot team",
       ].join("\n");
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60_000);
   try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        from: getFrom(),
-        to: [to.trim()],
-        subject,
-        text: body,
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
+    const res = await postToResend("/emails", apiKey, { from: getFrom(), to: [to.trim()], subject, text: body });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      console.error("[Limit reached email] Resend failed:", res.status, err);
+      console.error("[Limit reached email] Resend failed:", res.status, res.json);
       return { ok: false, error: "Failed to send" };
     }
     return { ok: true };
   } catch (e) {
-    clearTimeout(timeout);
     console.error("[Limit reached email] Error:", e);
     return { ok: false, error: "Failed to send" };
   }
@@ -93,9 +78,10 @@ export async function sendLimitReachedEmail(
 export async function sendUpgradeReminderEmail(
   to: string,
   plan: PlanKind,
-  name?: string | null
+  name?: string | null,
+  resendApiKey?: string | null
 ): Promise<{ ok: boolean; error?: string }> {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = resendApiKey?.trim() || process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.log("[Upgrade reminder] RESEND_API_KEY missing — not sent.");
     return { ok: false, error: "RESEND_API_KEY not set" };
@@ -129,32 +115,14 @@ export async function sendUpgradeReminderEmail(
         "— The Plainbot team",
       ].join("\n");
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60_000);
   try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        from: getFrom(),
-        to: [to.trim()],
-        subject,
-        text: body,
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
+    const res = await postToResend("/emails", apiKey, { from: getFrom(), to: [to.trim()], subject, text: body });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      console.error("[Upgrade reminder] Resend failed:", res.status, err);
+      console.error("[Upgrade reminder] Resend failed:", res.status, res.json);
       return { ok: false, error: "Failed to send" };
     }
     return { ok: true };
   } catch (e) {
-    clearTimeout(timeout);
     console.error("[Upgrade reminder] Error:", e);
     return { ok: false, error: "Failed to send" };
   }

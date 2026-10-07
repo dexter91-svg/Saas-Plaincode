@@ -12,6 +12,7 @@ type FcRow = {
   reminder_12h_sent_at: Date | string | null;
   reminder_24h_sent_at: Date | string | null;
   storeTitle: string | null;
+  resendApiKey: string | null;
 };
 
 function hoursSince(created: Date | string): number {
@@ -44,10 +45,11 @@ export async function GET(req: NextRequest) {
     const [r] = await conn.execute(
       `SELECT fc.id, fc.customer_email, fc.customer, fc.preview, fc.created_at,
               fc.reminder_6h_sent_at, fc.reminder_12h_sent_at, fc.reminder_24h_sent_at,
-              cb.website_title AS storeTitle
+              cb.website_title AS storeTitle, u.resend_api_key AS resendApiKey
        FROM forwarded_conversations fc
        INNER JOIN conversations c ON c.id = fc.conversation_id
        LEFT JOIN chatbots cb ON cb.id = c.chatbot_id
+       JOIN users u ON u.id = fc.user_id
        WHERE fc.replied_at IS NULL
          AND fc.customer_email IS NOT NULL
          AND TRIM(fc.customer_email) <> ''`
@@ -75,6 +77,7 @@ export async function GET(req: NextRequest) {
         customerName: row.customer,
         preview: row.preview ?? undefined,
         storeTitle: row.storeTitle ?? undefined,
+        resendApiKey: row.resendApiKey,
       });
       if (!res.ok) {
         stats.failed++;
