@@ -6,7 +6,7 @@
 import type { BillingPlan } from "@/lib/plans";
 import { postToResend } from "@/lib/resend-request";
 
-const FROM_EMAIL = "hello@plainbot.io";
+const FROM_EMAIL = process.env.EMAIL_FROM || "onboarding@resend.dev";
 
 const PLAN_LABEL: Record<Exclude<BillingPlan, "free">, string> = {
   growth: "Growth",

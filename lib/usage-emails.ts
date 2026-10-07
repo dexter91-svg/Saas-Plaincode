@@ -6,7 +6,7 @@
 import { postToResend } from "@/lib/resend-request";
 
 function getFrom(): string {
-  return process.env.EMAIL_FROM || "hello@plainbot.io";
+  return process.env.EMAIL_FROM || "onboarding@resend.dev";
 }
 
 function getBaseUrl(): string {
