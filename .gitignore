@@ -24,8 +24,16 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+.env
 .env*.local
 .env.railway
+
+# documents & external trackers
+*.docx
+*.xlsx
+*.xlsm
+*.xls
+Plaincode's Execution-Tracker*
 
 # vercel
 .vercel
