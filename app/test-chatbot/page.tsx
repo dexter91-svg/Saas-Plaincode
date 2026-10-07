@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import AppShell from "@/components/AppShell";
 import ChatPanel from "@/components/ChatPanel";
 import { useBot } from "@/components/BotContext";
@@ -22,6 +23,26 @@ const DEMO_STORE_DATA = {
 export default function TestChatbotPage() {
   const { scrapedData, setScrapedData } = useBot();
 
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production" && typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("demo") === "1") {
+        setScrapedData(DEMO_STORE_DATA);
+        window.history.replaceState({}, "", "/test-chatbot");
+        return;
+      }
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.ctrlKey && e.shiftKey && (e.key === "S" || e.key === "s")) {
+          e.preventDefault();
+          setScrapedData(DEMO_STORE_DATA);
+        }
+      };
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [setScrapedData]);
+
   return (
     <AppShell>
       <div className="min-h-[calc(100vh-56px)] bg-cream">
@@ -34,44 +55,28 @@ export default function TestChatbotPage() {
           </div>
 
           {scrapedData ? (
-            <div className={`${WIZARD_CARD_CLASS} !p-4 font-manrope text-xs text-warm-muted flex flex-wrap items-center justify-between gap-3`}>
-              <div className="min-w-0">
-                <p>
-                  Using content from: <span className="font-semibold text-ink">{scrapedData.url}</span> ({scrapedData.products?.length || 0} products)
-                </p>
-                <p className="mt-1 line-clamp-2">
-                  {scrapedData.description || scrapedData.title}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setScrapedData(null)}
-                className="shrink-0 rounded-lg border border-ink/20 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-ink/5"
-              >
-                Clear store data
-              </button>
+            <div className={`${WIZARD_CARD_CLASS} !p-4 font-manrope text-xs text-warm-muted`}>
+              <p>
+                Using content from: <span className="font-semibold text-ink">{scrapedData.url}</span>
+              </p>
+              <p className="mt-1 line-clamp-2">
+                {scrapedData.description || scrapedData.title}
+              </p>
             </div>
           ) : (
             <div className={`${WIZARD_CARD_CLASS} border-amber-300 bg-amber-50`}>
               <p className="font-manrope text-sm text-amber-800">
                 <strong>Your website hasn&apos;t been connected yet.</strong> The chatbot only has generic answers
-                until a store is loaded.
+                until a URL is analyzed successfully. If you already tried but got a rate-limit or &quot;access
+                denied&quot; error, the scrape didn&apos;t complete.
               </p>
               <p className="mt-2 font-manrope text-xs text-amber-700">
-                Want to test real product queries, prices, and policies without crawling a site? Click below to instantly load a sample store.
+                Go to Connect your store, enter a URL, and click &quot;Analyze Website&quot;. If it fails, try
+                again in a few minutes or use a different store URL.
               </p>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => setScrapedData(DEMO_STORE_DATA)}
-                  className={`inline-flex ${WIZARD_PRIMARY_BUTTON_CLASS} px-5 py-2.5 text-sm bg-amber-700 hover:bg-amber-800`}
-                >
-                  📦 Load Sample Store (Demo Outfitters)
-                </button>
-                <Link href="/create-bot" className={`inline-flex rounded-full border border-amber-400 bg-white px-5 py-2.5 font-manrope text-sm font-semibold text-amber-900 transition-colors hover:bg-amber-100/60`}>
-                  Connect real store URL
-                </Link>
-              </div>
+              <Link href="/create-bot" className={`mt-4 inline-flex ${WIZARD_PRIMARY_BUTTON_CLASS} px-5 py-2.5 text-sm`}>
+                Connect your store
+              </Link>
             </div>
           )}
 
