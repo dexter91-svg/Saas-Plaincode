@@ -670,6 +670,42 @@ async function run() {
       console.log("crawl_logs already exists, skip.");
     }
 
+    // 015: is_admin flag on users (internal founder analytics dashboard access)
+    if (!(await hasColumn(conn, "users", "is_admin"))) {
+      console.log("Adding users.is_admin...");
+      await conn.execute("ALTER TABLE users ADD COLUMN is_admin TINYINT(1) NOT NULL DEFAULT 0");
+      console.log("  OK");
+    } else {
+      console.log("users.is_admin already exists, skip.");
+    }
+
+    // 016: ai_usage table for token/cost tracking
+    const [aiUsageTables] = await conn.execute(
+      "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ai_usage'"
+    );
+    if (!Array.isArray(aiUsageTables) || aiUsageTables.length === 0) {
+      console.log("Creating ai_usage...");
+      await conn.execute(`
+        CREATE TABLE ai_usage (
+          id            CHAR(36)      NOT NULL DEFAULT (UUID()),
+          user_id       CHAR(36)      NOT NULL,
+          provider      VARCHAR(32)   NOT NULL,
+          model         VARCHAR(64)   NOT NULL,
+          input_tokens  INT           NOT NULL DEFAULT 0,
+          output_tokens INT           NOT NULL DEFAULT 0,
+          cost_usd      DECIMAL(10,8) NOT NULL DEFAULT 0,
+          created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          INDEX idx_ai_usage_user_id    (user_id),
+          INDEX idx_ai_usage_created_at (created_at),
+          INDEX idx_ai_usage_provider   (provider)
+        )
+      `);
+      console.log("  OK");
+    } else {
+      console.log("ai_usage already exists, skip.");
+    }
+
     console.log("\nMigrations finished.");
   } finally {
     await conn.end();

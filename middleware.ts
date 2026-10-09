@@ -45,18 +45,28 @@ export async function middleware(req: NextRequest) {
   if (!needsAuth) {
     res = NextResponse.next();
   } else {
-    // Mock auth only in development
+    // Mock auth in development (cookie or ?dev=1 parameter)
+    const devParam = !isProd && req.nextUrl.searchParams.get("dev") === "1";
     const mockAuth = isProd ? null : req.cookies.get("mock-auth")?.value;
-    if (mockAuth === "1") {
+    if (mockAuth === "1" || devParam) {
       res = NextResponse.next();
+      if (devParam) {
+        res.cookies.set("mock-auth", "1", { path: "/", maxAge: 86400 });
+      }
     } else {
       const token = req.cookies.get("auth-token")?.value;
       if (token) {
         const secretStr = (process.env.AUTH_SECRET || "default-secret-min-32-chars-for-dev-only").trim();
         const secret = new TextEncoder().encode(secretStr);
         try {
-          await jwtVerify(token, secret);
-          res = NextResponse.next();
+          const { payload } = await jwtVerify(token, secret);
+          if (pathname.startsWith("/admin") && !payload.isAdmin) {
+            const url = req.nextUrl.clone();
+            url.pathname = "/dashboard";
+            res = NextResponse.redirect(url);
+          } else {
+            res = NextResponse.next();
+          }
         } catch {
           const url = req.nextUrl.clone();
           url.pathname = "/login";

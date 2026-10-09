@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAppShell } from "./AppShellContext";
@@ -141,8 +142,16 @@ export default function Navbar() {
           <Link
             href="/"
             onClick={closeMobileMenu}
-            className="flex min-w-0 shrink items-center font-display text-xl italic text-ink no-underline hover:text-ink sm:text-2xl"
+            className="flex min-w-0 shrink items-center gap-2.5 font-display text-xl italic text-ink no-underline hover:text-ink sm:text-2xl group"
           >
+            <Image
+              src="/logo.svg"
+              alt="Plainbot logo"
+              width={26}
+              height={26}
+              className="object-contain shrink-0 transition-transform duration-200 group-hover:scale-105"
+              priority
+            />
             <span className="truncate">Plainbot</span>
           </Link>
 
