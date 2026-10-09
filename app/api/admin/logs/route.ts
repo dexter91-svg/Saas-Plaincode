@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
              cl.duration_ms AS durationMs, cl.error_message AS errorMessage,
              cl.created_at AS createdAt, u.email AS userEmail
       FROM crawl_logs cl
-      LEFT JOIN users u ON u.id = cl.user_id
+      LEFT JOIN users u ON u.id = CONVERT(cl.user_id USING utf8mb4) COLLATE utf8mb4_0900_ai_ci
       WHERE 1 = 1
     `;
     if (status && ["success", "failed", "timeout", "captcha"].includes(status)) {
