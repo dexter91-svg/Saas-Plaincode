@@ -36,7 +36,7 @@ export default function AssistantMessageContent({ content }: { content: string }
   }
 
   return (
-    <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+    <p className="whitespace-pre-wrap break-words text-[12px] leading-relaxed">
       {block.map((b, idx) =>
         b.type === "a" && b.href ? (
           <a
@@ -44,7 +44,7 @@ export default function AssistantMessageContent({ content }: { content: string }
             href={b.href}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-primary-400 underline hover:text-primary-300 break-all"
+            className="text-[#2B221C] underline hover:text-[#4A3B30] font-semibold break-all"
           >
             {b.v}
           </a>

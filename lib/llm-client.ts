@@ -28,7 +28,7 @@ export async function generateChatCompletion(options: LLMCompletionOptions): Pro
   provider: "anthropic" | "openai";
   model: string;
 }> {
-  const { systemPrompt, messages, temperature = 0.2, maxTokens = 1000, abortSignal } = options;
+  const { systemPrompt, messages, temperature = 0.2, maxTokens = 350, abortSignal } = options;
 
   // 1. Try Anthropic Claude first if configured
   if (anthropicClient && anthropicKey) {

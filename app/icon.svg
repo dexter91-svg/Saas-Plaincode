@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="512" height="512">
+  <defs>
+    <clipPath id="a">
+      <polygon points="-10,-10 85,-10 -10,85" />
+    </clipPath>
+    <clipPath id="b">
+      <polygon points="91,-10 100,-10 100,100 -10,100 -10,91" />
+    </clipPath>
+  </defs>
+  <path clip-path="url(#a)" d="M19.8 47.8 L7.5 56.5 L11.4 36.9 A23 23 0 1 1 19.8 47.8 Z" fill="#E07A45" stroke="#E07A45" stroke-width="3" stroke-linejoin="round" />
+  <path clip-path="url(#b)" d="M19.8 47.8 L7.5 56.5 L11.4 36.9 A23 23 0 1 1 19.8 47.8 Z" fill="#1A1A1A" stroke="#1A1A1A" stroke-width="3" stroke-linejoin="round" />
+</svg>
