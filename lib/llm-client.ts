@@ -1,5 +1,6 @@
 import { Anthropic } from "@anthropic-ai/sdk";
 import OpenAI from "openai";
+import { getDbConnection } from "@/lib/db";
 
 const anthropicKey = process.env.ANTHROPIC_API_KEY;
 const anthropicModel = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
@@ -21,6 +22,41 @@ export interface LLMCompletionOptions {
   temperature?: number;
   maxTokens?: number;
   abortSignal?: AbortSignal;
+  userId?: string;
+}
+
+// Cost per token in USD
+const TOKEN_COST: Record<string, { input: number; output: number }> = {
+  "claude-haiku-4-5-20251001": { input: 0.80 / 1_000_000, output: 4.00 / 1_000_000 },
+  "claude-haiku-4-5":          { input: 0.80 / 1_000_000, output: 4.00 / 1_000_000 },
+  "gpt-4o-mini":               { input: 0.15 / 1_000_000, output: 0.60 / 1_000_000 },
+  "gpt-4o":                    { input: 2.50 / 1_000_000, output: 10.0 / 1_000_000 },
+};
+
+function calcCost(model: string, inputTokens: number, outputTokens: number): number {
+  const rates = TOKEN_COST[model] ?? { input: 1.00 / 1_000_000, output: 4.00 / 1_000_000 };
+  return inputTokens * rates.input + outputTokens * rates.output;
+}
+
+async function logUsage(
+  userId: string | null | undefined,
+  provider: string,
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+) {
+  try {
+    const cost = calcCost(model, inputTokens, outputTokens);
+    const conn = await getDbConnection();
+    await conn.execute(
+      `INSERT INTO ai_usage (id, user_id, provider, model, input_tokens, output_tokens, cost_usd)
+       VALUES (UUID(), ?, ?, ?, ?, ?, ?)`,
+      [userId ?? null, provider, model, inputTokens, outputTokens, cost],
+    );
+    await conn.end();
+  } catch {
+    // Non-fatal — never let logging break the chat response
+  }
 }
 
 export async function generateChatCompletion(options: LLMCompletionOptions): Promise<{
@@ -28,18 +64,16 @@ export async function generateChatCompletion(options: LLMCompletionOptions): Pro
   provider: "anthropic" | "openai";
   model: string;
 }> {
-  const { systemPrompt, messages, temperature = 0.2, maxTokens = 350, abortSignal } = options;
+  const { systemPrompt, messages, temperature = 0.2, maxTokens = 350, abortSignal, userId } = options;
 
   // 1. Try Anthropic Claude first if configured
   if (anthropicClient && anthropicKey) {
     try {
-      // Anthropic messages format: array of user & assistant messages, system prompt passed separately
       const claudeMessages = messages.map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
       }));
 
-      // Ensure at least one message exists
       if (claudeMessages.length === 0) {
         claudeMessages.push({ role: "user", content: "Hello" });
       }
@@ -53,6 +87,14 @@ export async function generateChatCompletion(options: LLMCompletionOptions): Pro
           messages: claudeMessages,
         },
         { signal: abortSignal }
+      );
+
+      void logUsage(
+        userId,
+        "anthropic",
+        anthropicModel,
+        response.usage.input_tokens,
+        response.usage.output_tokens,
       );
 
       const firstBlock = response.content[0];
@@ -79,6 +121,17 @@ export async function generateChatCompletion(options: LLMCompletionOptions): Pro
       },
       { signal: abortSignal }
     );
+
+    if (completion.usage) {
+      void logUsage(
+        userId,
+        "openai",
+        openaiModel,
+        completion.usage.prompt_tokens,
+        completion.usage.completion_tokens,
+      );
+    }
+
     const text = completion.choices[0]?.message?.content || "";
     return {
       content: text.trim(),
