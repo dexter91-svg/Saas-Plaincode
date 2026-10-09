@@ -34,10 +34,8 @@ function CustomScrollArea({ children, maxHeight, className = "" }: { children: R
 
   return (
     <div className={`relative flex ${className}`}>
-      <div ref={contentRef} className="flex-1 overflow-y-auto" style={{ maxHeight }} onScroll={sync}
+      <div ref={contentRef} className="flex-1 overflow-y-auto" onScroll={sync}
         onMouseEnter={sync}
-        css-scrollbar-hide="true"
-        // hide native scrollbar
         style={{ maxHeight, scrollbarWidth: "none" } as React.CSSProperties}
       >
         <div ref={trackRef}>{children}</div>
