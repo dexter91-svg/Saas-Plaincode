@@ -18,6 +18,7 @@ import { detectsHumanRequest } from "@/lib/detect-human-request";
 
 import { generateChatCompletion } from "@/lib/llm-client";
 import { runTriageFunnel } from "@/lib/triage-funnel";
+import { getAuthFromCookie } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -26,6 +27,7 @@ async function enforceGuardRailsOrRewrite(args: {
   guardRailsText: string;
   question: string;
   draftAnswer: string;
+  userId?: string;
 }): Promise<{ answer: string; rewritten: boolean }> {
   const guard = (args.guardRailsText || "").trim();
   const draft = (args.draftAnswer || "").trim();
@@ -58,6 +60,7 @@ Return ONLY valid JSON with this exact schema:
       ],
       temperature: 0,
       maxTokens: 250,
+      userId: args.userId,
     });
 
     const raw = res.content || "{}";
@@ -411,7 +414,21 @@ export async function POST(req: NextRequest) {
         }
       }
       await conn2.end();
+    } else if (!chatbotId) {
+      // No chatbotId = internal test page or stateless widget. Attribute usage to the logged-in user if any.
+      if (!botUserId) {
+        try {
+          const auth = await getAuthFromCookie();
+          if (auth?.userId) botUserId = auth.userId;
+        } catch { /* ignore */ }
+      }
     } else if (chatbotId === "demo") {
+      if (!botUserId) {
+        try {
+          const auth = await getAuthFromCookie();
+          if (auth?.userId) botUserId = auth.userId;
+        } catch { /* ignore */ }
+      }
       personality = personality || "Friendly";
       if (!scrapedData) {
         scrapedData = {
@@ -860,6 +877,7 @@ ${websiteContext}
       temperature: 0.2,
       maxTokens: 350,
       abortSignal: llmAbort.signal,
+      userId: botUserId ?? undefined,
     });
     clearTimeout(llmTimeout);
 
@@ -868,6 +886,7 @@ ${websiteContext}
       guardRailsText,
       question,
       draftAnswer,
+      userId: botUserId ?? undefined,
     });
 
     const finalRaw = checkedAnswer || draftAnswer || "";

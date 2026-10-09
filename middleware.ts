@@ -59,8 +59,14 @@ export async function middleware(req: NextRequest) {
         const secretStr = (process.env.AUTH_SECRET || "default-secret-min-32-chars-for-dev-only").trim();
         const secret = new TextEncoder().encode(secretStr);
         try {
-          await jwtVerify(token, secret);
-          res = NextResponse.next();
+          const { payload } = await jwtVerify(token, secret);
+          if (pathname.startsWith("/admin") && !payload.isAdmin) {
+            const url = req.nextUrl.clone();
+            url.pathname = "/dashboard";
+            res = NextResponse.redirect(url);
+          } else {
+            res = NextResponse.next();
+          }
         } catch {
           const url = req.nextUrl.clone();
           url.pathname = "/login";

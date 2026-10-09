@@ -20,6 +20,7 @@ export interface TokenPayload {
   userId: string;
   email: string;
   plan: string;
+  isAdmin?: boolean;
   exp?: number;
 }
 

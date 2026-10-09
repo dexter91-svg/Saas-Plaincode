@@ -71,7 +71,7 @@ function LoginForm() {
               ? "pro"
               : "free";
       resetBotStorageForNewAccount(plan);
-      router.push("/dashboard");
+      router.push(data.user?.isAdmin ? "/admin" : "/dashboard");
     } catch {
       setError("Login failed. Try again.");
       setLoading(false);

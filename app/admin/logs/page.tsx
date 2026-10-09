@@ -260,8 +260,6 @@ function formatDuration(ms: number | null): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-/** A styled dropdown matching the app's palette - native <select> can't be restyled
- * cross-browser (that default blue-highlight list was the browser's own UI chrome). */
 function MerchantDropdown({
   value,
   options,
@@ -272,76 +270,169 @@ function MerchantDropdown({
   onChange: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [search, setSearch] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function close() {
+    setClosing(true);
+    closeTimer.current = setTimeout(() => { setOpen(false); setClosing(false); }, 180);
+  }
+
+  function toggle() {
+    if (open) { close(); } else { if (closeTimer.current) clearTimeout(closeTimer.current); setClosing(false); setOpen(true); }
+  }
 
   useEffect(() => {
-    if (!open) return;
-    const handlePointerDown = (e: PointerEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
+    if (open && !closing) setTimeout(() => searchRef.current?.focus(), 50);
+    if (!open) setSearch("");
+  }, [open, closing]);
+
+  useEffect(() => {
+    function handlePointerDown(e: PointerEvent) {
+      if (open && !closing && rootRef.current && !rootRef.current.contains(e.target as Node)) close();
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") close();
+    }
     document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleKey);
     return () => {
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKey);
     };
-  }, [open]);
+  }, [open, closing]);
+
+  const selectedColor = value !== "all" ? avatarColorFor(value) : null;
 
   return (
     <div ref={rootRef} className="relative ml-auto">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-2 rounded-lg border px-3.5 py-1.5 font-manrope text-xs font-bold text-ink transition-all duration-150 active:scale-[.97] ${
+        onClick={toggle}
+        className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 font-manrope text-xs font-bold text-ink transition-all duration-150 active:scale-[.97] ${
           open ? "border-terracotta/50 bg-peach/40" : "border-ink/[.15] bg-white hover:border-terracotta/40 hover:bg-peach/20"
         }`}
       >
-        {value === "all" ? "All merchants" : value}
+        {selectedColor && (
+          <span
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full font-manrope text-[10px] font-bold text-white"
+            style={{ background: selectedColor }}
+          >
+            {value.charAt(0).toUpperCase()}
+          </span>
+        )}
+        {!selectedColor && (
+          <svg className="h-3.5 w-3.5 shrink-0 text-warm-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        )}
+        <span className="max-w-[140px] truncate">
+          {value === "all" ? "All merchants" : value.split("@")[0]}
+        </span>
         <svg
           className={`h-3 w-3 shrink-0 text-warm-muted transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
+          fill="none" viewBox="0 0 24 24" stroke="currentColor"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
-      {open && (
-        <div className="dropdown-pop absolute right-0 top-[calc(100%+6px)] z-20 w-56 overflow-hidden rounded-lg border border-ink/[.1] bg-white shadow-[0_8px_24px_-6px_rgba(43,34,28,.18)]">
+      {(open || closing) && (
+        <div className={closing ? "dropdown-close" : "dropdown-pop"} style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 20, width: 256, overflow: "hidden", borderRadius: 12, border: "1px solid rgba(43,34,28,.08)", background: "#fff", boxShadow: "0 12px 32px -8px rgba(43,34,28,.22)" }}>
           <style>{`
-            @keyframes dropdownPop { from { opacity: 0; transform: translateY(-4px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
-            .dropdown-pop { animation: dropdownPop 0.15s ease-out forwards; transform-origin: top right; }
+            @keyframes dropdownPop {
+              0%   { opacity: 0; transform: translateY(-10px) scaleY(0.88); }
+              60%  { opacity: 1; transform: translateY(2px) scaleY(1.02); }
+              100% { opacity: 1; transform: translateY(0) scaleY(1); }
+            }
+            @keyframes dropdownClose {
+              0%   { opacity: 1; transform: translateY(0) scaleY(1); }
+              40%  { opacity: 1; transform: translateY(2px) scaleY(1.02); }
+              100% { opacity: 0; transform: translateY(-10px) scaleY(0.88); }
+            }
+            .dropdown-pop   { animation: dropdownPop   0.22s cubic-bezier(.34,1.4,.64,1) forwards; transform-origin: top right; }
+            .dropdown-close { animation: dropdownClose 0.18s cubic-bezier(.55,0,.64,.8)  forwards; transform-origin: top right; }
           `}</style>
-          <CustomScrollArea maxHeight={256} className="py-1.5">
-            <button
-              type="button"
-              onClick={() => {
-                onChange("all");
-                setOpen(false);
-              }}
-              className={`block w-full px-3.5 py-2 text-left font-manrope text-xs font-bold transition-all duration-150 ${
-                value === "all" ? "bg-peach text-terracotta" : "text-ink hover:translate-x-0.5 hover:bg-peach/50"
-              }`}
-            >
-              All merchants
-            </button>
-            {options.map((email) => (
+          <div className="border-b border-ink/[.06] px-3 py-2.5">
+            <p className="mb-2 font-manrope text-[10px] font-extrabold uppercase tracking-widest text-warm-muted">Filter by merchant</p>
+            <div className="flex items-center gap-2 rounded-lg border border-ink/[.12] bg-cream/60 px-2.5 py-1.5">
+              <svg className="h-3 w-3 shrink-0 text-warm-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" />
+              </svg>
+              <input
+                ref={searchRef}
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search merchants…"
+                className="w-full bg-transparent font-manrope text-xs text-ink placeholder-warm-muted outline-none"
+              />
+              {search && (
+                <button type="button" onClick={() => setSearch("")} className="shrink-0 text-warm-muted hover:text-ink">
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+          <CustomScrollArea maxHeight={240} className="py-1.5">
+            {!search && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => { onChange("all"); close(); }}
+                  className={`flex w-full items-center gap-2.5 px-3 py-2 transition-colors duration-100 ${
+                    value === "all" ? "bg-peach/60" : "hover:bg-peach/30"
+                  }`}
+                >
+                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${value === "all" ? "bg-terracotta/20" : "bg-ink/[.06]"}`}>
+                    <svg className={`h-3 w-3 ${value === "all" ? "text-terracotta" : "text-warm-muted"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  </span>
+                  <span className={`font-manrope text-xs ${value === "all" ? "font-bold text-terracotta" : "font-semibold text-ink"}`}>All merchants</span>
+                  {value === "all" && (
+                    <svg className="ml-auto h-3 w-3 shrink-0 text-terracotta" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+                {options.length > 0 && <div className="mx-3 my-1 border-t border-ink/[.06]" />}
+              </>
+            )}
+            {options.filter((e) => !search || e.toLowerCase().includes(search.toLowerCase())).length === 0 && (
+              <p className="px-3 py-4 text-center font-manrope text-xs text-warm-muted">No merchants found</p>
+            )}
+            {options.filter((e) => !search || e.toLowerCase().includes(search.toLowerCase())).map((email) => (
               <button
                 key={email}
                 type="button"
-                onClick={() => {
-                  onChange(email);
-                  setOpen(false);
-                }}
-                className={`block w-full truncate px-3.5 py-2 text-left font-manrope text-xs transition-all duration-150 ${
-                  value === email ? "bg-peach font-bold text-terracotta" : "text-ink hover:translate-x-0.5 hover:bg-peach/50"
+                onClick={() => { onChange(email); close(); }}
+                className={`flex w-full items-center gap-2.5 px-3 py-2 transition-colors duration-100 ${
+                  value === email ? "bg-peach/60" : "hover:bg-peach/30"
                 }`}
                 title={email}
               >
-                {email}
+                <span
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-manrope text-[10px] font-bold text-white"
+                  style={{ background: avatarColorFor(email) }}
+                >
+                  {email.charAt(0).toUpperCase()}
+                </span>
+                <span className="min-w-0 flex-1 text-left">
+                  <span className={`block truncate font-manrope text-xs ${value === email ? "font-bold text-terracotta" : "font-medium text-ink"}`}>
+                    {email.split("@")[0]}
+                  </span>
+                  <span className="block truncate font-manrope text-[10px] text-warm-muted">@{email.split("@")[1]}</span>
+                </span>
+                {value === email && (
+                  <svg className="ml-auto h-3 w-3 shrink-0 text-terracotta" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
               </button>
             ))}
           </CustomScrollArea>
