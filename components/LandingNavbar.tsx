@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
 // Colour shift plus a thin underline that draws in from the left on hover (and keyboard focus).
@@ -26,8 +27,16 @@ export default function LandingNavbar() {
           : "border-b border-ink/[.08]"
       }`}
     >
-      <Link href="/" className="font-display text-2xl italic text-ink no-underline hover:text-ink">
-        Plainbot
+      <Link href="/" className="flex items-center gap-2.5 font-display text-2xl italic text-ink no-underline hover:text-ink group">
+        <Image
+          src="/logo.svg"
+          alt="Plainbot logo"
+          width={28}
+          height={28}
+          className="object-contain transition-transform duration-200 group-hover:scale-105"
+          priority
+        />
+        <span>Plainbot</span>
       </Link>
       <div className="flex items-center gap-4 sm:gap-7">
         <Link href="/#pricing" className={`${NAV_LINK} hidden sm:inline-block`}>

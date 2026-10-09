@@ -16,8 +16,31 @@ function LoginForm() {
   const [resetBanner, setResetBanner] = useState(false);
   useEffect(() => {
     if (searchParams?.get("reset") === "1") setResetBanner(true);
-  }, [searchParams]);
 
+    if (process.env.NODE_ENV !== "production") {
+      if (searchParams?.get("dev") === "1") {
+        document.cookie = "mock-auth=1; path=/; max-age=86400";
+        window.localStorage.setItem("mock-auth", "1");
+        resetBotStorageForNewAccount("pro");
+        const target = searchParams?.get("from") || "/test-chatbot";
+        window.location.href = target;
+        return;
+      }
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.ctrlKey && e.shiftKey && (e.key === "D" || e.key === "d")) {
+          e.preventDefault();
+          document.cookie = "mock-auth=1; path=/; max-age=86400";
+          window.localStorage.setItem("mock-auth", "1");
+          resetBotStorageForNewAccount("pro");
+          const target = searchParams?.get("from") || "/test-chatbot";
+          window.location.href = target;
+        }
+      };
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -53,14 +76,6 @@ function LoginForm() {
       setError("Login failed. Try again.");
       setLoading(false);
     }
-  };
-
-  const handleDevBypass = () => {
-    document.cookie = "mock-auth=1; path=/; max-age=86400";
-    window.localStorage.setItem("mock-auth", "1");
-    resetBotStorageForNewAccount("pro");
-    const target = searchParams?.get("from") || "/test-chatbot";
-    window.location.href = target;
   };
 
   const handleClearData = async () => {
@@ -203,24 +218,6 @@ function LoginForm() {
               {loading ? "Logging in..." : "Log in"}
             </button>
           </form>
-
-          {process.env.NODE_ENV !== "production" && (
-            <div className="mt-4 rounded-xl border border-dashed border-amber-400 bg-amber-50/80 p-3.5 text-center">
-              <p className="font-manrope text-xs font-semibold text-amber-900">
-                🛠️ Local Dev Mode Active
-              </p>
-              <p className="mt-1 font-manrope text-[11px] text-amber-800">
-                MySQL offline? Click below to bypass login and test the bot immediately.
-              </p>
-              <button
-                type="button"
-                onClick={handleDevBypass}
-                className="mt-2.5 w-full rounded-lg bg-amber-600 px-4 py-2 font-manrope text-xs font-bold text-white transition-colors hover:bg-amber-700 active:scale-[.98]"
-              >
-                ⚡ Bypass Login & Test Chatbot
-              </button>
-            </div>
-          )}
 
           <p className="mt-4 text-center">
             <button
