@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useBot } from "@/components/BotContext";
@@ -242,9 +243,26 @@ export default function Sidebar() {
         }`}
       >
         <div className={`flex items-center pt-6 ${collapsed ? "flex-col gap-3 px-2.5" : "justify-between px-6"}`}>
-          {!collapsed && (
-            <Link href="/" className="font-display text-xl italic text-ink no-underline hover:text-ink">
-              Plainbot
+          {!collapsed ? (
+            <Link href="/" className="flex items-center gap-2 font-display text-xl italic text-ink no-underline hover:text-ink group">
+              <Image
+                src="/logo.svg"
+                alt="Plainbot logo"
+                width={22}
+                height={22}
+                className="object-contain shrink-0 transition-transform duration-200 group-hover:scale-105"
+              />
+              <span>Plainbot</span>
+            </Link>
+          ) : (
+            <Link href="/" className="flex items-center justify-center p-1">
+              <Image
+                src="/logo.svg"
+                alt="Plainbot logo"
+                width={24}
+                height={24}
+                className="object-contain"
+              />
             </Link>
           )}
           <button

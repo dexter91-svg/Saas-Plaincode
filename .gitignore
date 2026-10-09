@@ -38,6 +38,9 @@ Plaincode's Execution-Tracker*
 # vercel
 .vercel
 
+# scratch & test artifacts
+/scratch
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

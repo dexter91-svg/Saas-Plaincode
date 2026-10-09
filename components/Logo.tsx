@@ -18,7 +18,7 @@ export default function Logo({ size = "md" }: { size?: LogoSize }) {
       style={{ width, height }}
     >
       <Image
-        src="/logo.png"
+        src="/logo.svg"
         alt="Plainbot"
         width={width}
         height={height}

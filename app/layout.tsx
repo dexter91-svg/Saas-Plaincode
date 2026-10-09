@@ -32,8 +32,12 @@ export const metadata: Metadata = {
   description:
     "Your Shopify store is losing sales to unanswered questions. Plainbot fixes that in 10 minutes. AI chatbot trained on your store — support, cart recovery, tickets, 24/7.",
   icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/logo.png" },
+    ],
+    shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
   },
 };
 

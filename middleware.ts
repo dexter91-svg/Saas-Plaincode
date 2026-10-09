@@ -45,10 +45,14 @@ export async function middleware(req: NextRequest) {
   if (!needsAuth) {
     res = NextResponse.next();
   } else {
-    // Mock auth only in development
+    // Mock auth in development (cookie or ?dev=1 parameter)
+    const devParam = !isProd && req.nextUrl.searchParams.get("dev") === "1";
     const mockAuth = isProd ? null : req.cookies.get("mock-auth")?.value;
-    if (mockAuth === "1") {
+    if (mockAuth === "1" || devParam) {
       res = NextResponse.next();
+      if (devParam) {
+        res.cookies.set("mock-auth", "1", { path: "/", maxAge: 86400 });
+      }
     } else {
       const token = req.cookies.get("auth-token")?.value;
       if (token) {

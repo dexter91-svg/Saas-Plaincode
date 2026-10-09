@@ -7,17 +7,57 @@ import { useBot } from "@/components/BotContext";
 import { planHasPaidConversationTier, UNLIMITED_CONVERSATIONS_DISPLAY } from "@/lib/plans";
 import { contrastingForegroundForHex, resolvedWidgetAccentColor } from "@/lib/widget-color";
 import AssistantMessageContent from "@/components/AssistantMessageContent";
+import { DEFAULT_INITIAL_CHIPS, determineFollowUpChips, type QuickChip } from "@/lib/widget-chips";
+import Image from "next/image";
 
 const SUPPORT_WAIT_PREFIX = "__SUPPORT_WAIT__\n";
 const SUPPORT_WAIT_TEXT = `${SUPPORT_WAIT_PREFIX}No one is available in chat right this moment. Your request has been sent to our team—they will follow up with you by email when they respond. Feel free to ask anything else here in the meantime.`;
+
+function ChipMonotoneIcon({ id }: { id: string }) {
+  if (id === "track" || id.includes("track")) {
+    return (
+      <svg className="w-3.5 h-3.5 shrink-0 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+        <line x1="12" y1="22.08" x2="12" y2="12" />
+      </svg>
+    );
+  }
+  if (id === "return" || id.includes("return")) {
+    return (
+      <svg className="w-3.5 h-3.5 shrink-0 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+        <path d="M3 3v5h5" />
+      </svg>
+    );
+  }
+  if (id === "shipping" || id.includes("ship")) {
+    return (
+      <svg className="w-3.5 h-3.5 shrink-0 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="1" y="3" width="15" height="13" />
+        <polygon points="16 8 20 8 23 11 23 16 16 16 8" />
+        <circle cx="5.5" cy="18.5" r="2.5" />
+        <circle cx="18.5" cy="18.5" r="2.5" />
+      </svg>
+    );
+  }
+  return (
+    <svg className="w-3.5 h-3.5 shrink-0 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  );
+}
 
 interface ChatPanelProps {
   compact?: boolean;
   /** When true (snippet/embed): hide "Test your ecommerce assistant", conversation count, Dashboard/Integration links. */
   embed?: boolean;
+  onClose?: () => void;
 }
 
-export default function ChatPanel({ compact = false, embed = false }: ChatPanelProps) {
+export default function ChatPanel({ compact = false, embed = false, onClose }: ChatPanelProps) {
   const {
     scrapedData,
     personality,
@@ -37,6 +77,65 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
+  const [isHistoryClosing, setIsHistoryClosing] = useState(false);
+
+  const handleCloseHistory = () => {
+    setIsHistoryClosing(true);
+    setTimeout(() => {
+      setHistoryDrawerOpen(false);
+      setIsHistoryClosing(false);
+    }, 380);
+  };
+  const [savedSessions, setSavedSessions] = useState<{ id: string; timestamp: string; title: string; messages: any[] }[]>([]);
+  const [currentTimeStr, setCurrentTimeStr] = useState("Today, 04:20");
+
+  useEffect(() => {
+    const now = new Date();
+    const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+    setCurrentTimeStr(`Today, ${time}`);
+  }, []);
+
+  // Load saved chat history sessions on mount
+  useEffect(() => {
+    const sKey = `plainbot_sessions_${chatbotId || "default"}`;
+    try {
+      const raw = localStorage.getItem(sKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) setSavedSessions(parsed);
+      }
+    } catch {}
+  }, [chatbotId]);
+
+  // Save current conversation session to history whenever user has messaged
+  useEffect(() => {
+    const userMsg = messages.find((m) => m.role === "user");
+    if (!userMsg || messages.length < 2) return;
+    const sKey = `plainbot_sessions_${chatbotId || "default"}`;
+    const currentId = conversationIdRef.current || `session_${Math.floor(messages[0]?.createdAt || Date.now())}`;
+    const sessionItem = {
+      id: currentId,
+      timestamp: currentTimeStr,
+      title: userMsg.content.slice(0, 40) + (userMsg.content.length > 40 ? "…" : ""),
+      messages: messages,
+    };
+    try {
+      const raw = localStorage.getItem(sKey);
+      let list: any[] = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(list)) list = [];
+      const existingIdx = list.findIndex((s) => s.id === currentId);
+      if (existingIdx >= 0) {
+        list[existingIdx] = sessionItem;
+      } else {
+        list.unshift(sessionItem);
+      }
+      list = list.slice(0, 15);
+      localStorage.setItem(sKey, JSON.stringify(list));
+      setSavedSessions(list);
+    } catch {}
+  }, [messages, chatbotId, currentTimeStr]);
   const [showForwardForm, setShowForwardForm] = useState(false);
   const [forwardName, setForwardName] = useState("");
   const [forwardEmail, setForwardEmail] = useState("");
@@ -451,13 +550,13 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
     const userId = addMessage({ role: "user", content: question });
     syncedMsgIdsRef.current.add(userId);
     pendingUserMsgsRef.current.add(question);
-    const assistantId = addMessage({ role: "assistant", content: "" });
+    const assistantId = addMessage({ role: "assistant", content: "..." });
     syncedMsgIdsRef.current.add(assistantId);
     if (!overrideText) setInput("");
     setLoading(true);
 
-    // Show typing indicator immediately for better perceived performance
-    updateMessage(assistantId, { content: "..." });
+    // Natural typing indicator delay (~600ms) so user clearly sees the 3 bouncing dots
+    await new Promise((r) => setTimeout(r, 600));
 
     try {
       const res = await fetch("/api/chat", {
@@ -470,6 +569,10 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
           question,
           personality,
           scrapedData,
+          history: messages
+            .filter((m) => m.content && m.content !== "..." && !m.content.startsWith("__SUPPORT_WAIT__"))
+            .slice(-10)
+            .map((m) => ({ role: m.role, content: m.content })),
           ...(chatbotId && { chatbotId }),
           ...(conversationIdRef.current && { conversationId: conversationIdRef.current }),
         }),
@@ -608,6 +711,27 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
   const unlimitedRemaining = conversationRemaining >= UNLIMITED_CONVERSATIONS_DISPLAY;
   const disabled = loading || (!unlimitedRemaining && conversationRemaining <= 0);
 
+  // Dynamic chips: initial predefined chips before customer sends messages,
+  // followed by queued contextual suggestions based on previous interaction.
+  const hasUserMessages = messages.some((m) => m.role === "user");
+  const currentChips: QuickChip[] = (() => {
+    if (!hasUserMessages) {
+      return DEFAULT_INITIAL_CHIPS;
+    }
+    const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
+    const lastAssistantMsg = [...messages].reverse().find((m) => m.role === "assistant" || m.role === "agent");
+    return determineFollowUpChips(lastUserMsg?.content || "", lastAssistantMsg?.content || "");
+  })();
+
+  const handleChipClick = (chip: QuickChip) => {
+    if (disabled || loading) return;
+    if (chip.action === "human" || chip.id.includes("human")) {
+      handleHumanRequest();
+    } else {
+      handleSubmit(null, chip.query);
+    }
+  };
+
   const paidHidesPlainbotBranding = planHasPaidConversationTier(userPlan);
   const embedAccentFg =
     embed && embedAccent ? contrastingForegroundForHex(embedAccent) : undefined;
@@ -627,77 +751,206 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
     return "Chat";
   })();
 
+  const hasStartedChat = hasUserMessages;
+
   return (
     <div
-      className={`flex flex-col rounded-2xl border border-slate-800 bg-slate-900/60 shadow-soft ${
-        compact ? "h-[420px]" : "h-[560px]"
+      className={`relative flex flex-col rounded-[24px] border-[2.5px] border-[#2B221C] bg-gradient-to-br from-[#2B221C] via-[#352B24] to-[#201814] shadow-2xl overflow-hidden backdrop-blur-md font-poppins ${
+        compact ? "h-[530px] sm:h-[570px]" : "h-[610px]"
       }`}
     >
-      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 px-4 py-3">
-        {embed ? (
-          <>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-slate-100">
-                {paidHidesPlainbotBranding ? storeHeaderLabel : "Plainbot"}
-              </p>
-              {!paidHidesPlainbotBranding && (
-                <p className="text-[11px] text-slate-500">Powered by Plainbot</p>
-              )}
+      {/* Past Chat History Drawer Overlay (Triggered by •••) */}
+      {historyDrawerOpen && (
+        <div
+          className={`absolute inset-0 z-50 flex flex-col bg-white text-[#2B221C] p-4 shadow-2xl font-poppins rounded-[22px] border-[2px] border-[#2B221C] overflow-hidden ${
+            isHistoryClosing ? "animate-history-close pointer-events-none" : "animate-history-open"
+          }`}
+        >
+          <div className="flex items-center justify-between pb-3 border-b border-[#2B221C]/15">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-[#2B221C]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <h3 className="font-bold text-[13px] text-[#2B221C]">Chat History</h3>
             </div>
             <button
               type="button"
-              onClick={clearChat}
-              className="shrink-0 text-xs text-slate-400 hover:text-slate-100"
+              onClick={handleCloseHistory}
+              className="w-7 h-7 rounded-full bg-[#2B221C]/10 hover:bg-[#2B221C]/20 text-[#2B221C] flex items-center justify-center text-xs font-bold transition"
+              aria-label="Close history"
             >
-              Clear
+              ✕
             </button>
-          </>
-        ) : (
-          <>
-            <div>
-              <p className="text-sm font-semibold text-slate-100">
-                Test your ecommerce assistant
-              </p>
-              <p className="text-xs text-slate-400">
-                {unlimitedRemaining
-                  ? "Unlimited conversations on your plan"
-                  : `${conversationRemaining} conversations remaining in your plan`}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Link href="/dashboard">
-                <Button variant="ghost" className="px-3 py-1.5 text-xs">
-                  Dashboard
-                </Button>
-              </Link>
-              <Link href="/integration">
-                <Button variant="ghost" className="px-3 py-1.5 text-xs">
-                  Integration
-                </Button>
-              </Link>
+          </div>
+
+          {/* Start New Chat Button */}
+          <button
+            type="button"
+            onClick={() => {
+              clearChat();
+              handleCloseHistory();
+            }}
+            className="mt-3 w-full rounded-full bg-[#2B221C] hover:bg-[#3D3027] text-white py-2 px-4 text-[11.5px] font-semibold flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Start New Conversation
+          </button>
+
+          {/* Past Conversations List */}
+          <div className="flex-1 overflow-y-auto no-scrollbar mt-3 space-y-2 pr-1">
+            {savedSessions.length === 0 ? (
+              <div className="text-center py-10 text-[11.5px] text-[#8C7C6E] leading-relaxed">
+                <p className="font-medium text-[#2B221C]">No past conversations yet.</p>
+                <p className="mt-1">Conversations with the store assistant will be recorded and accessible here.</p>
+              </div>
+            ) : (
+              savedSessions.map((s, idx) => (
+                <div
+                  key={s.id || idx}
+                  onClick={() => {
+                    setMessages(s.messages);
+                    handleCloseHistory();
+                  }}
+                  className="p-3 rounded-xl bg-white border border-[#2B221C]/15 hover:border-[#2B221C] hover:shadow-sm cursor-pointer transition-all group"
+                >
+                  <div className="flex items-center justify-between text-[10.5px] text-[#8C7C6E] mb-1">
+                    <span>{s.timestamp}</span>
+                    <span className="text-[9.5px] bg-[#F3E3D6] text-[#2B221C] font-semibold px-2 py-0.5 rounded-full">
+                      {s.messages.length} msgs
+                    </span>
+                  </div>
+                  <p className="text-[11.5px] font-medium text-[#2B221C] truncate group-hover:text-[#2B221C] transition-colors">
+                    {s.title || "Conversation"}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Quick Actions Footer - Single Talk to Human Action */}
+          <div className="pt-3 border-t border-[#2B221C]/15 flex items-center justify-between text-[11.5px] text-[#8C7C6E]">
+            <button
+              type="button"
+              onClick={() => {
+                setShowForwardForm(true);
+                handleCloseHistory();
+              }}
+              className="text-[#2B221C] hover:underline font-medium flex items-center gap-1.5"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+              Talk to a human
+            </button>
+            {savedSessions.length > 0 && (
               <button
                 type="button"
-                onClick={clearChat}
-                className="text-xs text-slate-400 hover:text-slate-100"
+                onClick={() => {
+                  localStorage.removeItem(`plainbot_sessions_${chatbotId || "default"}`);
+                  setSavedSessions([]);
+                }}
+                className="text-red-500 hover:underline text-[11px]"
               >
-                Clear
+                Clear all
               </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Collapsible Header: Rich Dark Brown (#2B221C) Palette */}
+      <header
+        className={`relative transition-all duration-500 ease-in-out px-4 font-poppins ${
+          hasStartedChat ? "py-2.5 min-h-[50px] flex items-center" : "pt-3 pb-2.5 min-h-[156px]"
+        }`}
+      >
+        {/* Top Control Buttons (••• History and — Minimize) */}
+        <div className={`flex items-center justify-end gap-1.5 absolute right-3.5 z-10 ${hasStartedChat ? "top-1/2 -translate-y-1/2" : "top-3"}`}>
+          <button
+            type="button"
+            onClick={() => setHistoryDrawerOpen((v) => !v)}
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+            title="Past Chat History"
+            aria-label="Past Chat History"
+          >
+            <span className="text-xs font-bold tracking-widest leading-none">•••</span>
+          </button>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+              title="Minimize Chat"
+              aria-label="Minimize Chat"
+            >
+              <span className="text-xs font-bold leading-none">—</span>
+            </button>
+          )}
+        </div>
+
+        {/* Header Visual Layout: Hero Banner vs Compact Bar */}
+        {!hasStartedChat ? (
+          /* Hero Banner (#2B221C Theme with Staggered Entrance Animations) */
+          <div className="flex flex-col items-center justify-center text-center transition-all duration-500">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-md ring-2 ring-white/30 animate-comp-pop">
+              <Image src="/logo.svg" alt="Plainbot" width={30} height={30} className="object-contain" priority />
             </div>
-          </>
+            <h2 className="mt-2 text-[13px] font-bold text-white tracking-tight animate-comp-slide-1">
+              {paidHidesPlainbotBranding ? storeHeaderLabel : "Vintageshop"}
+            </h2>
+            <p className="mt-0.5 text-[10.5px] text-white/80 animate-comp-slide-1">
+              You can ask me anything
+            </p>
+            <button
+              type="button"
+              onClick={handleHumanRequest}
+              className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-white hover:bg-white/90 px-3.5 py-1.5 text-[10.5px] font-semibold text-[#2B221C] shadow-sm transition active:scale-95 animate-comp-slide-2"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+              Talk to a human
+            </button>
+          </div>
+        ) : (
+          /* Compact Bar: Vertically Centered Icon + Title */
+          <div className="flex items-center gap-2.5 transition-all duration-500 pr-16">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-white/30">
+              <Image src="/logo.svg" alt="Plainbot" width={18} height={18} className="object-contain" />
+            </div>
+            <h2 className="truncate text-[13.5px] font-bold text-white leading-none">
+              {paidHidesPlainbotBranding ? storeHeaderLabel : "Vintageshop"}
+            </h2>
+          </div>
         )}
       </header>
 
-      <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4 text-sm">
+      {/* White Chat Container with Curved Top Corners (matches reference UI) */}
+      <div className="flex-1 flex flex-col min-h-0 rounded-t-[24px] bg-white overflow-hidden shadow-[0_-4px_24px_rgba(43,34,28,0.12)] animate-comp-slide-1">
+        {/* Main Conversation Scroll View (Clean White Background, Hidden Scrollbar) */}
+        <div className="flex-1 space-y-3 overflow-y-auto no-scrollbar px-4 py-3 text-sm bg-white">
+        {/* Centered Timestamp */}
+        <div className="my-1 text-center select-none animate-comp-slide-1">
+          <span className="text-[11px] font-medium text-[#8C7C6E]">
+            {currentTimeStr}
+          </span>
+        </div>
+
+        {/* Contact Team Forward Form */}
         {showForwardForm && !forwardFormSubmitted && (
-          <form onSubmit={handleForwardToEmail} className="mb-3 rounded-lg border border-slate-700 bg-slate-800/80 p-3 space-y-2">
-            <p className="text-xs font-medium text-slate-200">Contact our team</p>
-            <p className="text-[11px] text-slate-400">We&apos;ll email your details and full chat to support.</p>
+          <form onSubmit={handleForwardToEmail} className="mb-3 rounded-xl border border-[#2B221C]/15 bg-white p-3 space-y-2 shadow-sm">
+            <p className="text-xs font-semibold text-[#2B221C]">Contact our team</p>
+            <p className="text-[11px] text-[#8C7C6E]">We&apos;ll email your details and full chat to support.</p>
             <input
               type="text"
               placeholder="Your name"
               value={forwardName}
               onChange={(e) => setForwardName(e.target.value)}
-              className="w-full rounded border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+              className="w-full rounded-lg border border-[#2B221C]/15 bg-[#FBF7F2] px-3 py-1.5 text-xs text-[#2B221C] placeholder:text-[#8C7C6E] focus:border-[#2B221C] focus:outline-none"
             />
             <input
               type="email"
@@ -705,137 +958,195 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
               value={forwardEmail}
               onChange={(e) => setForwardEmail(e.target.value)}
               required
-              className="w-full rounded border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+              className="w-full rounded-lg border border-[#2B221C]/15 bg-[#FBF7F2] px-3 py-1.5 text-xs text-[#2B221C] placeholder:text-[#8C7C6E] focus:border-[#2B221C] focus:outline-none"
             />
             <input
               type="text"
               placeholder="Order number (optional)"
               value={forwardOrderRef}
               onChange={(e) => setForwardOrderRef(e.target.value)}
-              className="w-full rounded border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+              className="w-full rounded-lg border border-[#2B221C]/15 bg-[#FBF7F2] px-3 py-1.5 text-xs text-[#2B221C] placeholder:text-[#8C7C6E] focus:border-[#2B221C] focus:outline-none"
             />
             <textarea
               placeholder="How can we help? (optional)"
               value={forwardMessage}
               onChange={(e) => setForwardMessage(e.target.value)}
               rows={2}
-              className="w-full resize-none rounded border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+              className="w-full resize-none rounded-lg border border-[#2B221C]/15 bg-[#FBF7F2] px-3 py-1.5 text-xs text-[#2B221C] placeholder:text-[#8C7C6E] focus:border-[#2B221C] focus:outline-none"
             />
             <div className="flex gap-2">
-              <Button type="submit" variant="primary" className="px-3 py-1.5 text-xs" disabled={forwardSubmitting}>
+              <Button type="submit" variant="primary" className="px-3 py-1 text-xs bg-[#2B221C] hover:bg-[#3D3027] text-white" disabled={forwardSubmitting}>
                 {forwardSubmitting ? "Sending…" : "Send to support"}
               </Button>
-              <button type="button" onClick={() => setShowForwardForm(false)} className="text-xs text-slate-400 hover:text-slate-100">
+              <button type="button" onClick={() => setShowForwardForm(false)} className="text-xs text-[#8C7C6E] hover:text-[#2B221C]">
                 Cancel
               </button>
             </div>
           </form>
         )}
-        {!scrapedData && (
-          <div className="mb-2 rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-            <strong>No store data yet.</strong> The chatbot needs your website to be analyzed first. If you already entered a URL but saw a rate-limit or “access denied” error, the scrape didn’t complete—go to{" "}
-            <a href="/create-bot" className="font-semibold text-primary-300 underline hover:text-primary-200">
-              Connect your store
-            </a>
-            , try again or use a different URL, then come back here. You can also keep chatting with a generic assistant below.
-          </div>
-        )}
+
         {handoffMode === "human" && (
-          <div className="mb-2 rounded-lg border border-emerald-500/35 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-200">
+          <div className="mb-2 rounded-xl border border-emerald-600/25 bg-[#EAF0E9] px-3 py-2 text-xs text-[#4E6E52] font-medium">
             A team member is chatting with you. Messages go to them in real time.
           </div>
         )}
-        {personality && handoffMode === "ai" && (
-          <div className="mb-1 text-xs text-slate-400">
-            Personality: <span className="font-semibold text-slate-200">{personality}</span>
+
+        {/* Initial Greeting & Vertically Stacked Action Chips */}
+        {messages.length === 0 && (
+          <div className="space-y-3 pt-1">
+            <div className="flex items-start gap-2 animate-comp-slide-2">
+              <div className="flex h-7.5 w-7.5 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-[#2B221C]/20 mt-0.5 shadow-sm">
+                <Image src="/logo.svg" alt="Plainbot" width={15} height={15} className="object-contain" />
+              </div>
+              <div className="rounded-xl rounded-tl-sm bg-[#F3E3D6] text-[#2B221C] border border-[#2B221C]/10 px-3.5 py-2.5 text-[12px] shadow-sm leading-relaxed">
+                <p className="font-semibold text-[#2B221C]">Hi There,</p>
+                <p className="mt-0.5 text-[#2B221C]/90">How can I help you today?</p>
+              </div>
+            </div>
+
+            {/* Vertically Stacked Action Chips with Monotone Icons & Staggered Entrance */}
+            <div className="flex flex-col items-start gap-1.5 pl-9">
+              {currentChips.map((chip, chipIdx) => {
+                const animClass =
+                  chipIdx === 0
+                    ? "animate-chip-cascade-0"
+                    : chipIdx === 1
+                    ? "animate-chip-cascade-1"
+                    : "animate-chip-cascade-2";
+                return (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    disabled={loading || disabled}
+                    onClick={() => handleChipClick(chip)}
+                    className={`inline-flex items-center justify-start gap-2 rounded-full border border-[#2B221C]/20 bg-[#F3E3D6] px-3.5 py-1.5 text-[11px] font-semibold text-[#2B221C] shadow-sm transition-all hover:border-[#2B221C] hover:bg-[#2B221C] hover:text-white disabled:opacity-40 group ${animClass}`}
+                  >
+                    <ChipMonotoneIcon id={chip.id} />
+                    <span>{chip.label.replace(/^[^\w\s]+\s*/, "")}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
-        {messages.length === 0 && (
-          <p className="text-xs text-slate-500">
-            Ask something like{" "}
-            <span className="italic text-slate-300">
-              “What are your shipping and return policies?”
-            </span>
-            .
-          </p>
-        )}
-
+        {/* Dynamic Messages History */}
         {messages.map((m, idx) => {
           const isAgentMsg = m.role === "agent";
           const isSupportReply = supportReplyIds.has(m.id) || isAgentMsg;
           const replyMeta = supportReplyMeta.get(m.id);
           const isWaitNotice = m.role === "assistant" && m.content.startsWith(SUPPORT_WAIT_PREFIX);
           const isFirstUserMessage = m.role === "user" && messages.findIndex((x) => x.role === "user") === idx;
+          const isTypingPlaceholder = m.role === "assistant" && m.content === "...";
+
           if (isWaitNotice) {
             return (
-              <div key={m.id} className="flex justify-start">
-                <div className="max-w-[90%] rounded-xl border border-indigo-500/35 bg-indigo-950/40 px-4 py-3 text-sm text-indigo-100">
-                  <p className="text-xs font-medium text-indigo-300/90">Update</p>
-                  <p className="mt-1 whitespace-pre-wrap break-words leading-relaxed">
+              <div key={m.id} className="flex justify-start pl-9">
+                <div className="max-w-[90%] rounded-xl border border-[#2B221C]/20 bg-[#F3E3D6] px-4 py-2.5 text-[11.5px] text-[#2B221C]">
+                  <p className="text-[10px] font-bold text-[#2B221C] uppercase">Update</p>
+                  <p className="mt-1 whitespace-pre-wrap break-words leading-relaxed text-[#2B221C]">
                     {m.content.slice(SUPPORT_WAIT_PREFIX.length)}
                   </p>
                 </div>
               </div>
             );
           }
+
           if (isSupportReply) {
             return (
-              <div key={m.id}>
-                <div className="flex justify-start">
-                  <div className="max-w-[85%] rounded-xl border border-sky-500/40 bg-sky-950/50 px-4 py-3">
-                    <div className="flex items-center gap-2 text-xs font-medium text-sky-400">
-                      <span>{isAgentMsg ? "Team member" : "Support reply"}</span>
-                      {replyMeta?.repliedAt && (
-                        <span className="text-slate-500 font-normal">
-                          {new Date(replyMeta.repliedAt).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })}
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-200">
-                      {m.content}
-                    </p>
+              <div key={m.id} className="flex items-start gap-2">
+                <div className="flex h-7.5 w-7.5 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-[#2B221C]/20 mt-0.5 shadow-sm">
+                  <Image src="/logo.svg" alt="Support" width={15} height={15} className="object-contain" />
+                </div>
+                <div className="max-w-[85%] rounded-xl border border-[#2B221C]/15 bg-white px-3.5 py-2.5 shadow-sm">
+                  <div className="flex items-center gap-2 text-[10.5px] font-semibold text-[#2B221C]">
+                    <span>{isAgentMsg ? "Team member" : "Support reply"}</span>
+                    {replyMeta?.repliedAt && (
+                      <span className="text-[#8C7C6E] font-normal text-[9.5px]">
+                        {new Date(replyMeta.repliedAt).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })}
+                      </span>
+                    )}
                   </div>
+                  <p className="mt-1.5 whitespace-pre-wrap break-words text-[12px] leading-relaxed text-[#2B221C]">
+                    {m.content}
+                  </p>
                 </div>
               </div>
             );
           }
+
           return (
-            <div key={m.id}>
-              <div
-                className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-              >
+            <div key={m.id} className="space-y-1.5">
+              <div className={`flex items-end gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                {/* Assistant Avatar Badge */}
+                {m.role === "assistant" && (
+                  <div className="flex h-7.5 w-7.5 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-[#2B221C]/20 mb-0.5 shadow-sm">
+                    <Image src="/logo.svg" alt="Bot" width={15} height={15} className="object-contain" />
+                  </div>
+                )}
                 <div
-                  className={`max-w-[80%] rounded-2xl px-3 py-2 ${
-                    m.role === "user"
-                      ? embed && embedAccent
-                        ? "rounded-br-sm"
-                        : "bg-primary-600 text-white rounded-br-sm"
-                      : "bg-slate-800 text-slate-100 rounded-bl-sm"
-                  }`}
+                  className={
+                    isTypingPlaceholder
+                      ? "px-2.5 py-1 rounded-xl rounded-bl-sm bg-[#F3E3D6] border border-[#2B221C]/10 shadow-sm flex items-center justify-center w-fit"
+                      : `max-w-[78%] rounded-xl px-3.5 py-2 text-[12px] leading-[1.45] font-poppins ${
+                          m.role === "user"
+                            ? embed && embedAccent
+                              ? "rounded-br-sm text-white"
+                              : "bg-[#2B221C] text-white rounded-br-sm shadow-sm"
+                            : "bg-[#F3E3D6] text-[#2B221C] rounded-bl-sm border border-[#2B221C]/10 shadow-sm"
+                        }`
+                  }
                   style={
-                    m.role === "user" && embed && embedAccent
+                    !isTypingPlaceholder && m.role === "user" && embed && embedAccent
                       ? { backgroundColor: embedAccent, color: embedAccentFg }
                       : undefined
                   }
                 >
                   {m.role === "assistant" ? (
-                    <AssistantMessageContent content={m.content} />
+                    isTypingPlaceholder ? (
+                      /* Centered 3 Dots in Compact Assistant Bubble */
+                      <div className="flex items-center justify-center gap-1 h-[14px]">
+                        <span className="w-1 h-1 rounded-full bg-[#2B221C] animate-typing-dot-1" />
+                        <span className="w-1 h-1 rounded-full bg-[#2B221C] animate-typing-dot-2" />
+                        <span className="w-1 h-1 rounded-full bg-[#2B221C] animate-typing-dot-3" />
+                      </div>
+                    ) : (
+                      <AssistantMessageContent content={m.content} />
+                    )
                   ) : (
-                    <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{m.content}</p>
+                    <p className="whitespace-pre-wrap break-words text-[12px] leading-relaxed">{m.content}</p>
                   )}
                 </div>
               </div>
+
+              {/* Follow-up Quick Action Chips with Monotone Icons */}
+              {m.role === "assistant" && idx === messages.length - 1 && !loading && currentChips.length > 0 && (
+                <div className="flex flex-col items-start gap-1.5 pl-9 pt-1 animate-fade-in">
+                  {currentChips.map((chip) => (
+                    <button
+                      key={chip.id}
+                      type="button"
+                      disabled={loading || disabled}
+                      onClick={() => handleChipClick(chip)}
+                      className="inline-flex items-center justify-start gap-2 rounded-full border border-[#2B221C]/20 bg-[#F3E3D6] px-3.5 py-1.5 text-[11px] font-semibold text-[#2B221C] shadow-sm transition-all hover:border-[#2B221C] hover:bg-[#2B221C] hover:text-white disabled:opacity-40 group"
+                    >
+                      <ChipMonotoneIcon id={chip.id} />
+                      <span>{chip.label.replace(/^[^\w\s]+\s*/, "")}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {isFirstUserMessage && currentTicketRef && (
-                <div className="mt-3 flex items-center gap-3 rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 py-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-400/40 bg-sky-500/20 text-sky-400">
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="mt-2.5 flex items-center gap-3 rounded-xl border border-[#2B221C]/15 bg-white px-3.5 py-2.5 pl-9 shadow-sm">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F3E3D6] text-[#2B221C]">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
                     </svg>
                   </span>
                   <div>
-                    <p className="font-semibold text-slate-100">Creating ticket</p>
-                    <p className="text-sm text-slate-400">Ticket #{currentTicketRef}</p>
+                    <p className="font-semibold text-[#2B221C] text-[11.5px]">Creating ticket</p>
+                    <p className="text-[10.5px] text-[#8C7C6E]">Ticket #{currentTicketRef}</p>
                   </div>
                 </div>
               )}
@@ -843,98 +1154,111 @@ export default function ChatPanel({ compact = false, embed = false }: ChatPanelP
           );
         })}
 
-        {ticketResolved && (
-          <div className="flex items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-400/40 bg-emerald-500/20 text-emerald-400">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-              </svg>
-            </span>
-            <div>
-              <p className="font-semibold text-slate-100">Ticket resolved</p>
-              <p className="text-sm text-slate-400">Our team or the AI has responded.</p>
+        {/* Assistant 3 Dots Typing Indicator during API response generation */}
+        {loading && (!messages.length || messages[messages.length - 1]?.content !== "...") && (
+          <div className="flex items-end gap-2 pt-0.5 animate-fade-in select-none">
+            <div className="flex h-7.5 w-7.5 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-[#2B221C]/20 mb-0.5 shadow-sm">
+              <Image src="/logo.svg" alt="Bot" width={15} height={15} className="object-contain" />
+            </div>
+            <div className="flex items-center justify-center gap-1 h-[20px] px-2.5 rounded-xl rounded-bl-sm bg-[#F3E3D6] border border-[#2B221C]/10 shadow-sm">
+              <span className="w-1 h-1 rounded-full bg-[#2B221C] animate-typing-dot-1" />
+              <span className="w-1 h-1 rounded-full bg-[#2B221C] animate-typing-dot-2" />
+              <span className="w-1 h-1 rounded-full bg-[#2B221C] animate-typing-dot-3" />
             </div>
           </div>
         )}
 
-        {loading && (
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-primary-400" />
-            Thinking...
+        {ticketResolved && (
+          <div className="flex items-center gap-3 rounded-xl border border-emerald-600/25 bg-[#EAF0E9] px-3.5 py-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#6B8F71] text-white">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+              </svg>
+            </span>
+            <div>
+              <p className="font-semibold text-[#2B221C] text-[11.5px]">Ticket resolved</p>
+              <p className="text-[10.5px] text-[#6E5E52]">Our team or the AI has responded.</p>
+            </div>
+          </div>
+        )}
+
+        {/* User-side 3 dots typing bubble while user is actively typing */}
+        {input.trim().length > 0 && (
+          <div className="flex justify-end pt-0.5 animate-fade-in select-none">
+            <div
+              className="flex items-center justify-center gap-1 h-[20px] px-2.5 rounded-xl rounded-br-sm bg-[#2B221C] shadow-sm"
+              aria-label="You are typing"
+            >
+              <span className="w-1 h-1 rounded-full bg-white animate-typing-dot-1" />
+              <span className="w-1 h-1 rounded-full bg-white animate-typing-dot-2" />
+              <span className="w-1 h-1 rounded-full bg-white animate-typing-dot-3" />
+            </div>
           </div>
         )}
 
         <div ref={endRef} />
       </div>
 
-      {/* Fixed toolbar, always visible for the life of the chat — not conditional on
-          handoff state, form state, or whether either has been used before. */}
-      <div className="flex flex-wrap justify-center gap-2 px-4 pt-2 pb-1">
-        <button
-          type="button"
-          onClick={handleHumanRequest}
-          disabled={loading || disabled}
-          className="flex items-center gap-1.5 rounded-full border border-slate-600 bg-slate-800/70 px-3 py-1 text-xs text-slate-300 hover:border-amber-400/60 hover:bg-amber-950/30 hover:text-amber-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        >
-          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
-          Talk to a human
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowForwardForm(true)}
-          className="flex items-center gap-1.5 rounded-full border border-slate-600 bg-slate-800/70 px-3 py-1 text-xs text-slate-300 hover:border-primary-400/60 hover:bg-primary-950/30 hover:text-primary-300 transition-colors"
-        >
-          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
-          Contact support
-        </button>
-      </div>
-      <form onSubmit={handleSubmit} className="border-t border-slate-800 px-4 py-3">
-        <div className="flex items-end gap-2">
-          <textarea
-            rows={compact ? 2 : 3}
-            className={`min-h-[44px] flex-1 resize-none rounded-xl border border-slate-700 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 ${
-              embed
-                ? "!bg-[#0f172a] !text-[#f1f5f9] placeholder:!text-slate-500"
-                : "bg-slate-900 text-slate-100 placeholder:text-slate-500"
-            }`}
-            placeholder={
-              !unlimitedRemaining && conversationRemaining <= 0
-                ? "You have used all conversations for this period."
-                : "Ask a question about your store..."
-            }
+      {/* Sleek Rounded Bottom Input Bar with #2B221C Accents */}
+      <form onSubmit={handleSubmit} className="border-t border-[#2B221C]/10 p-2.5 bg-white font-poppins animate-comp-slide-3">
+        <div className="relative flex items-center rounded-full border-[1.5px] border-[#2B221C]/25 bg-[#FBF7F2] px-3 py-1 shadow-sm focus-within:border-[#2B221C] focus-within:ring-1 focus-within:ring-[#2B221C] transition-all">
+          {/* User Input - Clean, standard, and buttery smooth */}
+          <input
+            type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(e as any);
+              }
+            }}
+            placeholder="Ask a question..."
             disabled={disabled}
+            className="w-full bg-transparent py-1 text-[12px] font-poppins text-[#2B221C] placeholder:text-[#8C7C6E] caret-[#2B221C] focus:outline-none"
+            aria-label="Ask a question"
           />
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={disabled || !input.trim()}
-            className="shrink-0"
-            style={
-              embed && embedAccent
-                ? {
-                    backgroundColor: embedAccent,
-                    backgroundImage: "none",
-                    color: embedAccentFg,
-                  }
-                : undefined
-            }
-          >
-            {!unlimitedRemaining && conversationRemaining <= 0 ? "Upgrade" : loading ? "Sending..." : "Send"}
-          </Button>
+
+          {/* Right Controls: Single Talk to Human Icon Button + Circular Send Button */}
+          <div className="flex items-center gap-1.5 shrink-0 pl-1">
+            {/* Single Talk to Human Button */}
+            <button
+              type="button"
+              onClick={() => setShowForwardForm((v) => !v)}
+              className={`p-1.5 rounded-full transition-colors ${
+                showForwardForm ? "bg-[#2B221C]/10 text-[#2B221C]" : "text-[#8C7C6E] hover:text-[#2B221C] hover:bg-[#2B221C]/10"
+              }`}
+              title="Talk to a human"
+              aria-label="Talk to a human"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            </button>
+
+            {/* Circular Send Button (#2B221C Accent) */}
+            <button
+              type="submit"
+              disabled={disabled || !input.trim()}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-[#2B221C] hover:bg-[#3D3027] text-white shadow-xs transition-all hover:scale-105 active:scale-95 disabled:opacity-40 disabled:hover:scale-100 disabled:cursor-not-allowed"
+              aria-label="Send message"
+            >
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+              </svg>
+            </button>
+          </div>
         </div>
+
         {error && (
-          <p className="mt-2 text-xs text-red-400 bg-red-950/40 border border-red-900/40 rounded-lg px-2 py-1.5">
+          <p className="mt-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5">
             {error}
           </p>
         )}
       </form>
     </div>
+  </div>
   );
 }
 
