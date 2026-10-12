@@ -67,7 +67,14 @@ export async function POST(req: NextRequest) {
       await conn2.end();
     }
 
-    await sendPasswordResetEmail(email, rawToken);
+    const sendResult = await sendPasswordResetEmail(email, rawToken);
+    if (!sendResult.ok) {
+      // Keep the client response generic either way (don't let a send failure leak
+      // account-existence info), but log it server-side so a silent failure - like
+      // Resend's sandbox domain rejecting a recipient that isn't the account owner -
+      // is actually visible somewhere instead of looking identical to a real send.
+      console.error(`[forgot-password] Reset email failed to send for ${email}:`, sendResult.error);
+    }
     return NextResponse.json(generic);
   } catch (err) {
     console.error("forgot-password:", err);
