@@ -86,7 +86,7 @@ export default function ChatPanel({ compact = false, embed = false, onClose }: C
     setTimeout(() => {
       setHistoryDrawerOpen(false);
       setIsHistoryClosing(false);
-    }, 380);
+    }, 400);
   };
   const [savedSessions, setSavedSessions] = useState<{ id: string; timestamp: string; title: string; messages: any[] }[]>([]);
   const [currentTimeStr, setCurrentTimeStr] = useState("Today, 04:20");
@@ -145,6 +145,7 @@ export default function ChatPanel({ compact = false, embed = false, onClose }: C
   const [forwardFormSubmitted, setForwardFormSubmitted] = useState(false);
   const [humanRequestedViaButton, setHumanRequestedViaButton] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const greetingSentRef = useRef(false);
   const conversationIdRef = useRef<string | null>(null);
   const lastReplyShownRef = useRef<string | null>(null);
@@ -553,6 +554,9 @@ export default function ChatPanel({ compact = false, embed = false, onClose }: C
     const assistantId = addMessage({ role: "assistant", content: "..." });
     syncedMsgIdsRef.current.add(assistantId);
     if (!overrideText) setInput("");
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
     setLoading(true);
 
     // Natural typing indicator delay (~600ms) so user clearly sees the 3 bouncing dots
@@ -705,6 +709,9 @@ export default function ChatPanel({ compact = false, embed = false, onClose }: C
     } finally {
       setLoading(false);
       submittingRef.current = false;
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+      });
     }
   };
 
@@ -755,14 +762,14 @@ export default function ChatPanel({ compact = false, embed = false, onClose }: C
 
   return (
     <div
-      className={`relative flex flex-col rounded-[24px] border-[2.5px] border-[#2B221C] bg-gradient-to-br from-[#2B221C] via-[#352B24] to-[#201814] shadow-2xl overflow-hidden backdrop-blur-md font-poppins ${
+      className={`relative flex flex-col rounded-[24px] border border-[#2B221C]/15 bg-gradient-to-br from-[#2B221C] via-[#352B24] to-[#201814] shadow-[0_20px_50px_-10px_rgba(43,34,28,0.28),0_8px_16px_-4px_rgba(43,34,28,0.08)] overflow-hidden backdrop-blur-md font-poppins ${
         compact ? "h-[530px] sm:h-[570px]" : "h-[610px]"
       }`}
     >
       {/* Past Chat History Drawer Overlay (Triggered by •••) */}
       {historyDrawerOpen && (
         <div
-          className={`absolute inset-0 z-50 flex flex-col bg-white text-[#2B221C] p-4 shadow-2xl font-poppins rounded-[22px] border-[2px] border-[#2B221C] overflow-hidden ${
+          className={`absolute inset-0 z-50 flex flex-col bg-white text-[#2B221C] p-4 shadow-2xl font-poppins rounded-[24px] border border-[#2B221C]/15 overflow-hidden ${
             isHistoryClosing ? "animate-history-close pointer-events-none" : "animate-history-open"
           }`}
         >
@@ -864,7 +871,7 @@ export default function ChatPanel({ compact = false, embed = false, onClose }: C
       {/* Collapsible Header: Rich Dark Brown (#2B221C) Palette */}
       <header
         className={`relative transition-all duration-500 ease-in-out px-4 font-poppins ${
-          hasStartedChat ? "py-2.5 min-h-[50px] flex items-center" : "pt-3 pb-2.5 min-h-[156px]"
+          hasStartedChat ? "py-2.5 min-h-[52px] flex items-center" : "pt-5 pb-5 min-h-[195px]"
         }`}
       >
         {/* Top Control Buttons (••• History and — Minimize) */}
@@ -876,17 +883,24 @@ export default function ChatPanel({ compact = false, embed = false, onClose }: C
             title="Past Chat History"
             aria-label="Past Chat History"
           >
-            <span className="text-xs font-bold tracking-widest leading-none">•••</span>
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+              <path d="M12 7v5l4 2" />
+            </svg>
           </button>
           {onClose && (
             <button
               type="button"
               onClick={onClose}
               className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-              title="Minimize Chat"
-              aria-label="Minimize Chat"
+              title="Close Chat"
+              aria-label="Close Chat"
             >
-              <span className="text-xs font-bold leading-none">—</span>
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
             </button>
           )}
         </div>
@@ -1156,7 +1170,7 @@ export default function ChatPanel({ compact = false, embed = false, onClose }: C
 
         {/* Assistant 3 Dots Typing Indicator during API response generation */}
         {loading && (!messages.length || messages[messages.length - 1]?.content !== "...") && (
-          <div className="flex items-end gap-2 pt-0.5 animate-fade-in select-none">
+          <div className="flex items-end gap-2 pt-0.5 animate-bubble-pop-left select-none">
             <div className="flex h-7.5 w-7.5 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-[#2B221C]/20 mb-0.5 shadow-sm">
               <Image src="/logo.svg" alt="Bot" width={15} height={15} className="object-contain" />
             </div>
@@ -1184,7 +1198,7 @@ export default function ChatPanel({ compact = false, embed = false, onClose }: C
 
         {/* User-side 3 dots typing bubble while user is actively typing */}
         {input.trim().length > 0 && (
-          <div className="flex justify-end pt-0.5 animate-fade-in select-none">
+          <div className="flex justify-end pt-0.5 animate-bubble-pop-right select-none">
             <div
               className="flex items-center justify-center gap-1 h-[20px] px-2.5 rounded-xl rounded-br-sm bg-[#2B221C] shadow-sm"
               aria-label="You are typing"
@@ -1201,9 +1215,10 @@ export default function ChatPanel({ compact = false, embed = false, onClose }: C
 
       {/* Sleek Rounded Bottom Input Bar with #2B221C Accents */}
       <form onSubmit={handleSubmit} className="border-t border-[#2B221C]/10 p-2.5 bg-white font-poppins animate-comp-slide-3">
-        <div className="relative flex items-center rounded-full border-[1.5px] border-[#2B221C]/25 bg-[#FBF7F2] px-3 py-1 shadow-sm focus-within:border-[#2B221C] focus-within:ring-1 focus-within:ring-[#2B221C] transition-all">
-          {/* User Input - Clean, standard, and buttery smooth */}
+        <div className="relative flex items-center rounded-full border border-[#2B221C]/15 bg-[#FBF7F2] px-3 py-1 shadow-sm focus-within:border-[#2B221C] focus-within:ring-1 focus-within:ring-[#2B221C] transition-all">
+          {/* User Input - Clean, auto-active and buttery smooth */}
           <input
+            ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -1211,40 +1226,45 @@ export default function ChatPanel({ compact = false, embed = false, onClose }: C
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 handleSubmit(e as any);
+                requestAnimationFrame(() => {
+                  inputRef.current?.focus();
+                });
               }
             }}
             placeholder="Ask a question..."
-            disabled={disabled}
+            disabled={!unlimitedRemaining && conversationRemaining <= 0}
             className="w-full bg-transparent py-1 text-[12px] font-poppins text-[#2B221C] placeholder:text-[#8C7C6E] caret-[#2B221C] focus:outline-none"
             aria-label="Ask a question"
           />
 
           {/* Right Controls: Single Talk to Human Icon Button + Circular Send Button */}
           <div className="flex items-center gap-1.5 shrink-0 pl-1">
-            {/* Single Talk to Human Button */}
-            <button
-              type="button"
-              onClick={() => setShowForwardForm((v) => !v)}
-              className={`p-1.5 rounded-full transition-colors ${
-                showForwardForm ? "bg-[#2B221C]/10 text-[#2B221C]" : "text-[#8C7C6E] hover:text-[#2B221C] hover:bg-[#2B221C]/10"
-              }`}
-              title="Talk to a human"
-              aria-label="Talk to a human"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
-            </button>
+            {/* Single Talk to Human Button - Only visible once chat has started and header minimized */}
+            {hasStartedChat && (
+              <button
+                type="button"
+                onClick={() => setShowForwardForm((v) => !v)}
+                className={`p-1.5 rounded-full transition-all duration-300 animate-comp-slide-1 ${
+                  showForwardForm ? "bg-[#2B221C]/10 text-[#2B221C]" : "text-[#8C7C6E] hover:text-[#2B221C] hover:bg-[#2B221C]/10"
+                }`}
+                title="Talk to a human"
+                aria-label="Talk to a human"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              </button>
+            )}
 
             {/* Circular Send Button (#2B221C Accent) */}
             <button
               type="submit"
               disabled={disabled || !input.trim()}
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-[#2B221C] hover:bg-[#3D3027] text-white shadow-xs transition-all hover:scale-105 active:scale-95 disabled:opacity-40 disabled:hover:scale-100 disabled:cursor-not-allowed"
+              className="flex h-7 w-7 p-0 m-0 items-center justify-center rounded-full bg-[#2B221C] hover:bg-[#3D3027] text-white shadow-xs transition-all hover:scale-105 active:scale-95 disabled:opacity-40 disabled:hover:scale-100 disabled:cursor-not-allowed"
               aria-label="Send message"
             >
-              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+              <svg className="h-3.5 w-3.5 block m-auto" viewBox="0.5 0 24 24" fill="currentColor">
                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
               </svg>
             </button>

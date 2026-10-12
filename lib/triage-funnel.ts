@@ -259,6 +259,16 @@ export function evaluateTier2(ctx: TriageContext): TriageResult | null {
     };
   }
 
+  // 0c. Standalone Test, Ping & Friendly Greetings ($0.00 Zero-LLM)
+  const isTestOrGreeting = /^(?:test(?:ing)?|ping|hello(?: there)?|hi(?: there)?|hey(?: there)?|just\s+testing|good\s*(?:morning|afternoon|evening))\s*[.!?]*$/i.test(q);
+  if (isTestOrGreeting) {
+    return {
+      handled: true,
+      tier: "tier2_rules_regex",
+      reply: "Hi there! How can I help you today? Let me know if you have questions about our products, shipping, orders, or returns.",
+    };
+  }
+
   const history = ctx.historyMessages || [];
   const lastAssistant = [...history].reverse().find((m) => m.role === "assistant");
   const userMessages = history.filter((m) => m.role === "user");
