@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import type { PoolConnection } from "mysql2/promise";
 import { createForwardToken } from "./auth";
+import { postToResend } from "./resend-request";
 
 
 export type ForwardSubmitInput = {
@@ -83,33 +84,24 @@ async function sendForwardEmail(args: {
     .filter(Boolean)
     .join("\n");
 
-  const resendAbort = new AbortController();
-  const resendTimeout = setTimeout(() => resendAbort.abort(), 60_000);
   try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        from: process.env.EMAIL_FROM || "onboarding@resend.dev",
-        to: [args.to],
-        reply_to: args.customerEmail,
-        subject,
-        text: emailBody,
-      }),
-      signal: resendAbort.signal,
+    const res = await postToResend("/emails", apiKey, {
+      from: process.env.EMAIL_FROM || "onboarding@resend.dev",
+      to: [args.to],
+      // Once a real inbound address exists (SUPPORT_INBOUND_EMAIL, on a verified
+      // domain with Resend Inbound configured), merchant replies route through our
+      // webhook and sync back into the conversation. Until then, fall back to the
+      // customer's address so replies still work, just without syncing to the app.
+      reply_to: process.env.SUPPORT_INBOUND_EMAIL || args.customerEmail,
+      subject,
+      text: emailBody,
     });
-    clearTimeout(resendTimeout);
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      console.error("Resend send failed:", res.status, err);
+      console.error("Resend send failed:", res.status, res.json);
       return false;
     }
     return true;
   } catch (e) {
-    clearTimeout(resendTimeout);
     console.error("Resend send failed:", e);
     return false;
   }
@@ -233,10 +225,9 @@ export async function submitForwardToSupport(
       .join("\n");
   }
 
-  const [userRows] = await conn.execute("SELECT forward_email, resend_api_key FROM users WHERE id = ?", [input.userId]);
-  const userRow = (userRows as { forward_email?: string; resend_api_key?: string }[])[0];
+  const [userRows] = await conn.execute("SELECT forward_email FROM users WHERE id = ?", [input.userId]);
+  const userRow = (userRows as { forward_email?: string }[])[0];
   const forwardEmail = userRow?.forward_email ?? null;
-  const resendApiKey = userRow?.resend_api_key ?? null;
 
   let emailSent = false;
   if (forwardEmail) {
@@ -251,7 +242,6 @@ export async function submitForwardToSupport(
       customerMessage: input.customerMessage,
       preview,
       conversationText,
-      resendApiKey,
       priority: isHigh ? "high" : "normal",
     });
   }

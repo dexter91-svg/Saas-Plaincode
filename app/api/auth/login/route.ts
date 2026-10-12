@@ -27,13 +27,13 @@ export async function POST(req: NextRequest) {
     const conn = await getDbConnection();
 
     const [rows] = await conn.execute(
-      "SELECT id, email, password_hash, plan FROM users WHERE email = ?",
+      "SELECT id, email, password_hash, plan, is_admin FROM users WHERE email = ?",
       [email]
     );
 
     await conn.end();
 
-    const users = rows as { id: string; email: string; password_hash: string; plan: string }[];
+    const users = rows as { id: string; email: string; password_hash: string; plan: string; is_admin: number }[];
 
     if (users.length === 0) {
       return NextResponse.json(
@@ -56,13 +56,14 @@ export async function POST(req: NextRequest) {
       userId: user.id,
       email: user.email,
       plan: user.plan || "free",
+      isAdmin: !!user.is_admin,
     });
 
     await setAuthCookie(token);
 
     return NextResponse.json({
       ok: true,
-      user: { id: user.id, email: user.email, plan: user.plan },
+      user: { id: user.id, email: user.email, plan: user.plan, isAdmin: !!user.is_admin },
     });
   } catch (err) {
     console.error("Login error:", err);

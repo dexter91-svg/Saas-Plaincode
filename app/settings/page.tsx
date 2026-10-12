@@ -79,14 +79,6 @@ export default function SettingsPage() {
   const [alertTesting, setAlertTesting] = useState(false);
   const [alertMessage, setAlertMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
 
-  const [resendKey, setResendKey] = useState("");
-  const [resendHasKey, setResendHasKey] = useState(false);
-  const [resendSavedKey, setResendSavedKey] = useState<string | null>(null);
-  const [resendSaving, setResendSaving] = useState(false);
-  const [resendMessage, setResendMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
-  const [resendKeyVisible, setResendKeyVisible] = useState(false);
-  const [resendSavedVisible, setResendSavedVisible] = useState(false);
-
   const [refundEnabled, setRefundEnabled] = useState(false);
   const [refundMaxAmount, setRefundMaxAmount] = useState("");
   const [refundWindowDays, setRefundWindowDays] = useState("");
@@ -162,40 +154,6 @@ export default function SettingsPage() {
       setAlertMessage({ type: "error", text: e instanceof Error ? e.message : "Test failed." });
     } finally {
       setAlertTesting(false);
-    }
-  };
-
-  useEffect(() => {
-    fetch("/api/users/resend-key")
-      .then((r) => r.json())
-      .then((data) => {
-        if (typeof data.hasKey === "boolean") setResendHasKey(data.hasKey);
-        if (typeof data.resendApiKey === "string") setResendSavedKey(data.resendApiKey);
-      })
-      .catch(() => {});
-  }, []);
-
-  const saveResendKey = async () => {
-    setResendMessage(null);
-    setResendSaving(true);
-    try {
-      const res = await fetch("/api/users/resend-key", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resendApiKey: resendKey.trim() }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Failed to save.");
-      setResendHasKey(data.hasKey);
-      setResendSavedKey(resendKey.trim() && data.hasKey ? resendKey.trim() : null);
-      setResendKey("");
-      setResendKeyVisible(false);
-      setResendSavedVisible(false);
-      setResendMessage({ type: "ok", text: data.hasKey ? "API key saved." : "API key removed." });
-    } catch (e: unknown) {
-      setResendMessage({ type: "error", text: e instanceof Error ? e.message : "Failed to save." });
-    } finally {
-      setResendSaving(false);
     }
   };
 
@@ -639,101 +597,6 @@ export default function SettingsPage() {
               {alertMessage && (
                 <p className={`mt-2 font-manrope text-xs ${alertMessage.type === "ok" ? "text-sage" : "text-red-600"}`}>
                   {alertMessage.text}
-                </p>
-              )}
-            </div>
-
-            {/* Resend API key */}
-            <div className={WIZARD_CARD_CLASS}>
-              <h2 className="font-manrope text-[15px] font-bold text-ink">Email provider (Resend)</h2>
-              <p className="mt-1.5 font-manrope text-[13px] text-warm-body">
-                By default, forwarded emails are sent via Plainbot&apos;s shared Resend account. Paste your own{" "}
-                <a href="https://resend.com" target="_blank" rel="noopener noreferrer" className="underline">
-                  Resend
-                </a>{" "}
-                API key to send from your own account instead.
-              </p>
-              {resendHasKey && resendKey === "" ? (
-                <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
-                  <div className={`flex flex-1 min-w-[220px] items-center justify-between rounded-lg border border-ink/[.15] bg-warm-bg px-3 py-2.5 font-mono text-sm text-warm-muted`}>
-                    <div className="flex min-w-0 items-center gap-1.5 truncate">
-                      <span className="truncate">
-                        {resendSavedVisible && resendSavedKey ? resendSavedKey : "re_••••••••••••••••••••••"}
-                      </span>
-                      {resendSavedKey && (
-                        <button
-                          type="button"
-                          onClick={() => navigator.clipboard.writeText(resendSavedKey)}
-                          className="shrink-0 text-warm-muted hover:text-ink"
-                          title="Copy"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                    <div className="ml-2 flex items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setResendSavedVisible((v) => !v)}
-                        className="font-manrope text-xs text-warm-muted hover:text-ink"
-                      >
-                        {resendSavedVisible ? "Hide" : "Show"}
-                      </button>
-                      <span className="font-manrope text-xs text-sage">Saved</span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setResendKey(" ")}
-                    className={`${WIZARD_OUTLINE_BUTTON_CLASS} px-5 py-2.5 text-xs`}
-                  >
-                    Replace
-                  </button>
-                  <button
-                    type="button"
-                    disabled={resendSaving}
-                    onClick={() => { setResendKey(""); void saveResendKey(); }}
-                    className="font-manrope text-xs text-red-500 hover:underline"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ) : (
-              <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
-                <div className="relative min-w-[220px] flex-1">
-                  <input
-                    type={resendKeyVisible ? "text" : "password"}
-                    value={resendKey.trim()}
-                    onChange={(e) => setResendKey(e.target.value)}
-                    placeholder="re_…"
-                    className={`w-full pr-16 ${WIZARD_INPUT_CLASS}`}
-                    autoComplete="new-password"
-                    autoFocus={resendHasKey}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setResendKeyVisible((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 font-manrope text-xs text-warm-muted hover:text-ink"
-                  >
-                    {resendKeyVisible ? "Hide" : "Show"}
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  disabled={resendSaving}
-                  onClick={saveResendKey}
-                  className={`${WIZARD_PRIMARY_BUTTON_CLASS} px-5 py-2.5 text-xs`}
-                >
-                  {resendSaving ? "Saving…" : "Save"}
-                </button>
-              </div>
-              )}
-              {resendMessage && (
-                <p className={`mt-2 font-manrope text-xs ${resendMessage.type === "ok" ? "text-sage" : "text-red-600"}`}>
-                  {resendMessage.text}
                 </p>
               )}
             </div>

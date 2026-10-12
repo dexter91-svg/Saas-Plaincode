@@ -11,7 +11,6 @@ type Row = {
   created_at: Date | string;
   alertEmail: string;
   alertMinutes: number;
-  resendApiKey: string | null;
 };
 
 /**
@@ -32,8 +31,7 @@ export async function GET(req: NextRequest) {
   try {
     const [r] = await conn.execute(
       `SELECT fc.id, fc.customer, fc.customer_email, fc.preview, fc.order_ref, fc.created_at,
-              u.escalation_alert_email AS alertEmail, u.escalation_alert_minutes AS alertMinutes,
-              u.resend_api_key AS resendApiKey
+              u.escalation_alert_email AS alertEmail, u.escalation_alert_minutes AS alertMinutes
        FROM forwarded_conversations fc
        INNER JOIN users u ON u.id = fc.user_id
        WHERE fc.replied_at IS NULL
@@ -64,7 +62,7 @@ export async function GET(req: NextRequest) {
       preview: row.preview || "",
       orderRef: row.order_ref,
       waitingMinutes,
-    }, row.resendApiKey);
+    });
 
     if (!result.ok) {
       stats.failed++;

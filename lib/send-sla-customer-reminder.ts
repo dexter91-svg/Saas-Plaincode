@@ -1,3 +1,5 @@
+import { postToResend } from "@/lib/resend-request";
+
 type Tier = 6 | 12 | 24;
 
 function subjectFor(tier: Tier, storeName?: string): string {
@@ -58,9 +60,9 @@ function bodyFor(
 export async function sendSlaReminderToCustomer(
   customerEmail: string,
   tier: Tier,
-  opts?: { customerName?: string | null; preview?: string; storeTitle?: string | null }
+  opts?: { customerName?: string | null; preview?: string; storeTitle?: string | null; resendApiKey?: string | null }
 ): Promise<{ ok: boolean; error?: string }> {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = opts?.resendApiKey?.trim() || process.env.RESEND_API_KEY;
   if (!apiKey) {
     return { ok: false, error: "RESEND_API_KEY not set" };
   }
@@ -73,26 +75,9 @@ export async function sendSlaReminderToCustomer(
   const text = bodyFor(tier, opts?.customerName, opts?.preview || "");
 
   try {
-    const abort = new AbortController();
-    const timeout = setTimeout(() => abort.abort(), 60_000);
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        from,
-        to: [to],
-        subject: subj,
-        text,
-      }),
-      signal: abort.signal,
-    });
-    clearTimeout(timeout);
+    const res = await postToResend("/emails", apiKey, { from, to: [to], subject: subj, text });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      console.error("[SLA reminder] Resend failed:", res.status, err);
+      console.error("[SLA reminder] Resend failed:", res.status, res.json);
       return { ok: false, error: "Failed to send email" };
     }
     return { ok: true };

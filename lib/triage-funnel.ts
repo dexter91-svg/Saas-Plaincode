@@ -268,7 +268,6 @@ export function evaluateTier2(ctx: TriageContext): TriageResult | null {
       reply: "Hi there! How can I help you today? Let me know if you have questions about our products, shipping, orders, or returns.",
     };
   }
-
   const history = ctx.historyMessages || [];
   const lastAssistant = [...history].reverse().find((m) => m.role === "assistant");
   const userMessages = history.filter((m) => m.role === "user");

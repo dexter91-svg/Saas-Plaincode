@@ -1,3 +1,5 @@
+import { postToResend } from "@/lib/resend-request";
+
 export type AlertDetails = {
   customer: string;
   customerEmail: string | null;
@@ -31,18 +33,9 @@ async function sendViaResend(to: string, subject: string, text: string, resendAp
 
   const from = process.env.EMAIL_FROM || "onboarding@resend.dev";
   try {
-    const abort = new AbortController();
-    const timeout = setTimeout(() => abort.abort(), 60_000);
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ from, to: [to], subject, text }),
-      signal: abort.signal,
-    });
-    clearTimeout(timeout);
+    const res = await postToResend("/emails", apiKey, { from, to: [to], subject, text });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      console.error("[Escalation alert] Resend failed:", res.status, err);
+      console.error("[Escalation alert] Resend failed:", res.status, res.json);
       return { ok: false, error: `Email provider returned ${res.status}` };
     }
     return { ok: true };

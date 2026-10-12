@@ -29,29 +29,14 @@ export async function POST(req: NextRequest) {
     }
     const conversationId = match[1];
 
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-      console.error("[Resend inbound] RESEND_API_KEY not set");
-      return NextResponse.json({ ok: false }, { status: 500 });
-    }
-
-    const res = await fetch(`https://api.resend.com/emails/receiving/${emailId}`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
-    if (!res.ok) {
-      console.error("[Resend inbound] Failed to fetch email:", res.status);
-      return NextResponse.json({ ok: false }, { status: 502 });
-    }
-    const email = (await res.json()) as { text?: string; html?: string };
-    const replyText = (email.text || email.html || "").trim().slice(0, 10000);
-    if (!replyText) {
-      return NextResponse.json({ ok: true, reason: "empty body" });
-    }
-
+    // Look up the escalation (and its owner's own Resend key, if they've set one) before
+    // calling Resend at all — avoids wasting an API call on a webhook that won't match
+    // anything, and lets us use the right key for the customer-facing send below.
     const conn = await getDbConnection();
     const [rows] = await conn.execute(
-      "SELECT id, customer_email, customer FROM forwarded_conversations WHERE conversation_id = ? ORDER BY created_at DESC LIMIT 1",
+      `SELECT fc.id, fc.customer_email, fc.customer
+       FROM forwarded_conversations fc
+       WHERE fc.conversation_id = ? ORDER BY fc.created_at DESC LIMIT 1`,
       [conversationId]
     );
     const list = rows as { id: string; customer_email: string | null; customer: string | null }[];
@@ -62,6 +47,33 @@ export async function POST(req: NextRequest) {
     const forwardedId = list[0].id;
     const customerEmail = list[0].customer_email;
     const customerName = list[0].customer;
+
+    // Fetching the *received* email must use the platform's own Resend key — that's the
+    // account whose inbound address actually received it, regardless of which store this
+    // escalation belongs to or whether that store has its own key configured.
+    const platformApiKey = process.env.RESEND_API_KEY;
+    if (!platformApiKey) {
+      await conn.end();
+      console.error("[Resend inbound] RESEND_API_KEY not set (needed to fetch the received email)");
+      return NextResponse.json({ ok: false }, { status: 500 });
+    }
+
+    const res = await fetch(`https://api.resend.com/emails/receiving/${emailId}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${platformApiKey}` },
+    });
+    if (!res.ok) {
+      await conn.end();
+      console.error("[Resend inbound] Failed to fetch email:", res.status);
+      return NextResponse.json({ ok: false }, { status: 502 });
+    }
+    const email = (await res.json()) as { text?: string; html?: string };
+    const replyText = (email.text || email.html || "").trim().slice(0, 10000);
+    if (!replyText) {
+      await conn.end();
+      return NextResponse.json({ ok: true, reason: "empty body" });
+    }
+
     await conn.execute(
       "UPDATE forwarded_conversations SET reply_text = ?, replied_at = CURRENT_TIMESTAMP WHERE id = ?",
       [replyText, forwardedId]
@@ -73,6 +85,8 @@ export async function POST(req: NextRequest) {
     await conn.end();
 
     if (customerEmail) {
+      // Sending the reply onward to the customer can use the store's own key if they've
+      // set one (same pattern as escalation alerts), falling back to the platform key.
       await sendReplyToCustomerEmail(customerEmail, replyText, customerName);
     }
 
