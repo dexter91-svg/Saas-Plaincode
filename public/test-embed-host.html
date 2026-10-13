@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hostile Theme Reset Test Page - Plainbot Widget Isolation</title>
+  <style>
+    /* Aggressive Host Theme CSS Resets (Simulating Dawn / Astra / Hostile resets) */
+    * {
+      all: unset !important;
+      box-sizing: content-box !important;
+      font-family: 'Comic Sans MS', cursive !important;
+      color: #ff00ff !important;
+      line-height: 4 !important;
+      letter-spacing: 5px !important;
+      text-transform: uppercase !important;
+    }
+    body {
+      display: block !important;
+      margin: 40px !important;
+      padding: 20px !important;
+      background: #111 !important;
+      color: #00ff00 !important;
+      direction: rtl !important;
+      text-align: right !important;
+    }
+    button {
+      background: #ff0000 !important;
+      border: 8px solid #0000ff !important;
+      font-size: 32px !important;
+      padding: 30px !important;
+      display: block !important;
+      width: 400px !important;
+    }
+    input, textarea {
+      background: #ffff00 !important;
+      color: #000000 !important;
+      border: 6px dashed #ff00ff !important;
+      font-size: 28px !important;
+      padding: 20px !important;
+    }
+    svg {
+      display: none !important;
+      fill: #ff00ff !important;
+    }
+    h1, h2, h3, h4, p, span {
+      font-size: 30px !important;
+      color: #ff00ff !important;
+    }
+  </style>
+</head>
+<body>
+  <div style="direction: ltr; text-align: left;">
+    <h1 style="color: #ffffff !important; font-size: 24px !important; text-transform: none !important;">Host Store Theme (Hostile Environment)</h1>
+    <p style="color: #cccccc !important; font-size: 14px !important; text-transform: none !important;">This page loads Plainbot widget inside an environment with aggressive global CSS resets (* { all: unset !important; }), RTL layout, Comic Sans font, and broken SVG/button styles.</p>
+    <button type="button" style="text-transform: none;">Host Store Button (Should be red)</button>
+  </div>
+
+  <!-- Embed Plainbot Script -->
+  <script src="/widget.js?v=fresh" data-bot-id="demo"></script>
+</body>
+</html>
