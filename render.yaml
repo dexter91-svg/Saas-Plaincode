@@ -1,0 +1,84 @@
+services:
+  - type: web
+    name: plainbot
+    runtime: node
+    region: oregon
+    plan: starter
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NEXT_PUBLIC_APP_URL
+        value: https://plainbot.onrender.com
+      - key: DB_HOST
+        fromService:
+          type: pserv
+          name: plainbot-db
+          property: host
+      - key: DB_PORT
+        value: "3306"
+      - key: DB_NAME
+        fromService:
+          type: pserv
+          name: plainbot-db
+          envVarKey: MYSQL_DATABASE
+      - key: DB_USER
+        fromService:
+          type: pserv
+          name: plainbot-db
+          envVarKey: MYSQL_USER
+      - key: DB_PASSWORD
+        fromService:
+          type: pserv
+          name: plainbot-db
+          envVarKey: MYSQL_PASSWORD
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: CRON_SECRET
+        generateValue: true
+      - key: EMAIL_FROM
+        value: hello@plainbot.io
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: ANTHROPIC_MODEL
+        value: claude-haiku-4-5-20251001
+      - key: OPENAI_API_KEY
+        fromService:
+          type: web
+          name: Saas-Plaincode-1
+          envVarKey: OPENAI_API_KEY
+      - key: ANTHROPIC_API_KEY
+        fromService:
+          type: web
+          name: Saas-Plaincode-1
+          envVarKey: ANTHROPIC_API_KEY
+      - key: RESEND_API_KEY
+        fromService:
+          type: web
+          name: Saas-Plaincode-1
+          envVarKey: RESEND_API_KEY
+      - key: STRIPE_SECRET_KEY
+        fromService:
+          type: web
+          name: Saas-Plaincode-1
+          envVarKey: STRIPE_SECRET_KEY
+      - key: STRIPE_WEBHOOK_SECRET
+        fromService:
+          type: web
+          name: Saas-Plaincode-1
+          envVarKey: STRIPE_WEBHOOK_SECRET
+      - key: STRIPE_PRICE_ID_GROWTH_MONTHLY
+        fromService:
+          type: web
+          name: Saas-Plaincode-1
+          envVarKey: STRIPE_PRICE_ID_GROWTH_MONTHLY
+      - key: STRIPE_PRICE_ID_PRO_MONTHLY
+        fromService:
+          type: web
+          name: Saas-Plaincode-1
+          envVarKey: STRIPE_PRICE_ID_PRO_MONTHLY
+      - key: STRIPE_PRICE_ID_AGENCY_MONTHLY
+        fromService:
+          type: web
+          name: Saas-Plaincode-1
+          envVarKey: STRIPE_PRICE_ID_AGENCY_MONTHLY
