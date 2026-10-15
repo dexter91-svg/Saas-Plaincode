@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jwtVerify } from "jose";
+import { verifyToken } from "@/lib/auth";
 
 const PROTECTED = [
   "/dashboard",
@@ -22,7 +22,7 @@ const PROTECTED = [
   "/signup/payment",
 ];
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // In production, redirect HTTP to HTTPS (if host is plainbot.io or your domain)
@@ -37,8 +37,6 @@ export async function middleware(req: NextRequest) {
   const hasToken = req.nextUrl.searchParams.has("token") || req.nextUrl.search.includes("token=");
   const isForwardedView = pathname.startsWith("/forwarded-conversations");
   const isPublicBypass = hasToken && isForwardedView;
-
-  console.log(`[Middleware Check] path: ${pathname}, hasToken: ${hasToken}, isForwardedView: ${isForwardedView}, isPublicBypass: ${isPublicBypass}`);
 
   const needsAuth = PROTECTED.some((p) => pathname.startsWith(p)) && !isPublicBypass;
   let res: NextResponse;
@@ -55,23 +53,14 @@ export async function middleware(req: NextRequest) {
       }
     } else {
       const token = req.cookies.get("auth-token")?.value;
-      if (token) {
-        const secretStr = (process.env.AUTH_SECRET || "default-secret-min-32-chars-for-dev-only").trim();
-        const secret = new TextEncoder().encode(secretStr);
-        try {
-          const { payload } = await jwtVerify(token, secret);
-          if (pathname.startsWith("/admin") && !payload.isAdmin) {
-            const url = req.nextUrl.clone();
-            url.pathname = "/dashboard";
-            res = NextResponse.redirect(url);
-          } else {
-            res = NextResponse.next();
-          }
-        } catch {
+      const payload = token ? verifyToken(token) : null;
+      if (payload) {
+        if (pathname.startsWith("/admin") && !payload.isAdmin) {
           const url = req.nextUrl.clone();
-          url.pathname = "/login";
-          url.searchParams.set("from", pathname);
+          url.pathname = "/dashboard";
           res = NextResponse.redirect(url);
+        } else {
+          res = NextResponse.next();
         }
       } else {
         const url = req.nextUrl.clone();

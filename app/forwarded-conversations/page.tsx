@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState, useRef } from "react";
+import { Fragment, use, useEffect, useState, useRef } from "react";
 import AppShell from "@/components/AppShell";
 import { useBot } from "@/components/BotContext";
 import WizardHeader from "@/components/WizardHeader";
@@ -90,13 +90,14 @@ function bubbleClass(role: string): string {
 export default function ForwardedConversationsPage({
   searchParams,
 }: {
-  searchParams: { id?: string; token?: string };
+  searchParams: Promise<{ id?: string; token?: string }>;
 }) {
   const { chatbotId } = useBot();
-  
+  const query = use(searchParams);
+
   // URL Token / Read-Only states
-  const token = searchParams.token || null;
-  const conversationId = searchParams.id || null;
+  const token = query.token || null;
+  const conversationId = query.id || null;
 
   const [publicConv, setPublicConv] = useState<any>(null);
   const [publicMessages, setPublicMessages] = useState<ChatMsg[]>([]);

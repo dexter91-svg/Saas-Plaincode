@@ -7,14 +7,14 @@ export const runtime = "nodejs";
 
 export async function DELETE(
   _req: Request,
-  { params }: { params: { documentId: string } }
+  { params }: { params: Promise<{ documentId: string }> }
 ) {
   const auth = await getAuthFromCookie();
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const documentId = params.documentId?.trim();
+  const documentId = (await params).documentId?.trim();
   if (!documentId) {
     return NextResponse.json({ error: "Missing document id" }, { status: 400 });
   }

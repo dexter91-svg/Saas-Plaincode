@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { getAuthFromCookie } from "@/lib/auth";
 import { getDbConnection } from "@/lib/db";
-import pdfParse from "pdf-parse";
+import { PDFParse } from "pdf-parse";
 import { checkRateLimit, LIMITS } from "@/lib/rate-limit";
 import { reindexChatbot } from "@/lib/rag";
 
@@ -22,8 +22,13 @@ async function extractTextFromFile(file: File): Promise<string> {
     return buffer.toString("utf-8").slice(0, MAX_TEXT_LENGTH);
   }
 
-  const data = await pdfParse(buffer);
-  return (data?.text || "").slice(0, MAX_TEXT_LENGTH);
+  const parser = new PDFParse({ data: buffer });
+  try {
+    const data = await parser.getText();
+    return (data?.text || "").slice(0, MAX_TEXT_LENGTH);
+  } finally {
+    await parser.destroy();
+  }
 }
 
 function collectFiles(formData: FormData): File[] {
