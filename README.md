@@ -1,46 +1,33 @@
 # Plainbot
 
-Production-ready Next.js frontend (Tailwind CSS) for the SaaS product **Plainbot** — AI customer support for e-commerce.
+AI customer-support agent for Shopify and WooCommerce stores. Next.js 16 (App Router), React 19, Tailwind CSS, MySQL.
 
-## Setup
+## Local setup
+
+Requires Node 24 and a MySQL 8 database.
 
 ```bash
 npm install
+cp .env.example .env.local   # fill in the values
+mysql -u root -p < database/schema.sql
+npm run db:migrate
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-## Logo
+## Database
 
-Place your logo image at **`public/logo.png`**. The app will use it in the navbar and on the login/signup pages. If the file is missing, a gradient icon fallback is shown.
+`database/schema.sql` creates the base tables. `scripts/migrate.js` (`npm run db:migrate`) adds every later table and column, checks before each change, and is safe to re-run. `npm start` runs it before the server starts, so a deploy migrates the database automatically.
 
-## Pages
+## Deploying on Render
 
-- **`/`** — Landing (hero, how it works, features, pricing, CTA, footer)
-- **`/login`** — Login (email, password, Continue with Google)
-- **`/signup`** — Sign up (full name, business email, company, password, checkbox, Create Account / Google)
-- **`/dashboard`** — Placeholder (empty for now)
+A Node web service with:
 
-## Structure
+- Build command: `npm ci && npm run build`
+- Start command: `npm start`
+- Environment: the variables in `.env.example`. `NEXT_PUBLIC_*` values are baked in at build time, so change them and redeploy.
 
-```
-/app
-  layout.tsx, page.tsx, globals.css
-  /login, /signup, /dashboard, /api (empty)
-/components
-  Navbar.tsx, Footer.tsx, Logo.tsx
-  Button.tsx, Input.tsx, Card.tsx
-/public
-  logo.png  ← add your logo here
-```
+The database is the `plainbot-db` private service (MySQL 8 with a persistent disk), reached at host `plainbot-db`, port `3306`.
 
-## Build
-
-```bash
-npm run build
-npm start
-```
-
-UI only; no backend logic. Use reusable `Button`, `Input`, and `Card`; design is light theme, rounded-xl, soft shadows, responsive.
-"# Ecom-chatbot" 
+Escalation alerts (every 5 minutes) and ticket SLA reminders (every 10 minutes) are scheduled inside the server by `instrumentation.ts`. They run only in production and only when `CRON_SECRET` is set, and they need an always-on instance.
