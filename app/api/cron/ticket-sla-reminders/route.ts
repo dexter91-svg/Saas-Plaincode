@@ -22,13 +22,12 @@ function hoursSince(created: Date | string): number {
 
 /**
  * Pending forwarded tickets: send customer SLA emails at 6h, 12h, 24h (no auto-close).
- * Schedule every 5–10 minutes (e.g. Vercel Cron). Protect with CRON_SECRET.
+ * Runs every 10 minutes (see instrumentation.ts). Requires CRON_SECRET.
  */
 export async function GET(req: NextRequest) {
   const secret =
     req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || req.nextUrl.searchParams.get("secret");
-  const vercelCron = req.headers.get("x-vercel-cron");
-  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET && vercelCron !== "1") {
+  if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -16,13 +16,12 @@ type Row = {
 /**
  * Emails store owners about escalations still in "New" (not acknowledged, not replied)
  * once they've waited longer than the owner's chosen timer. Each escalation alerts once.
- * Runs every few minutes (see vercel.json). Protected by CRON_SECRET when it is set.
+ * Runs every 5 minutes (see instrumentation.ts). Requires CRON_SECRET.
  */
 export async function GET(req: NextRequest) {
   const secret =
     req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || req.nextUrl.searchParams.get("secret");
-  const vercelCron = req.headers.get("x-vercel-cron");
-  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET && vercelCron !== "1") {
+  if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
