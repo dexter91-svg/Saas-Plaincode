@@ -706,6 +706,32 @@ async function run() {
       console.log("ai_usage already exists, skip.");
     }
 
+    // 017: shopify_connections (OAuth-connected stores, Admin API access)
+    const [shopifyConnTables] = await conn.execute(
+      "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'shopify_connections'"
+    );
+    if (!Array.isArray(shopifyConnTables) || shopifyConnTables.length === 0) {
+      console.log("Creating shopify_connections...");
+      await conn.execute(`
+        CREATE TABLE shopify_connections (
+          id            CHAR(36)     NOT NULL DEFAULT (UUID()),
+          user_id       CHAR(36)     NOT NULL,
+          shop_domain   VARCHAR(255) NOT NULL,
+          access_token  VARCHAR(255) NOT NULL,
+          scope         VARCHAR(255) NULL,
+          installed_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          UNIQUE KEY uk_shopify_connections_shop (shop_domain),
+          INDEX idx_shopify_connections_user (user_id),
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+      console.log("  OK");
+    } else {
+      console.log("shopify_connections already exists, skip.");
+    }
+
     console.log("\nMigrations finished.");
   } finally {
     await conn.end();

@@ -11,6 +11,25 @@ import {
 import { checkRateLimit, LIMITS } from "@/lib/rate-limit";
 import { getAuthFromCookie } from "@/lib/auth";
 import { getDbConnection } from "@/lib/db";
+import { fetchShopifyAdminInfoContent, fetchShopifyAdminProducts } from "@/lib/shopify-admin-api";
+
+async function getShopifyConnectionForUser(
+  userId: string
+): Promise<{ shopDomain: string; accessToken: string } | null> {
+  try {
+    const conn = await getDbConnection();
+    const [rows] = await conn.execute(
+      "SELECT shop_domain, access_token FROM shopify_connections WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1",
+      [userId]
+    );
+    await conn.end();
+    const row = (rows as { shop_domain: string; access_token: string }[])[0];
+    return row ? { shopDomain: row.shop_domain, accessToken: row.access_token } : null;
+  } catch (e) {
+    console.warn("[Scraper Log] Failed to look up Shopify connection:", e);
+    return null;
+  }
+}
 
 async function logCrawl(opts: {
   userId: string | null;
@@ -560,7 +579,50 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 1) If store type is set, try product feed + sitemap scraper first
+    // 1) Shopify with a connected (OAuth) store: authenticated Admin API, not the public feed —
+    // can't be bot-blocked, and pulls real shop policies instead of guessing at page URLs.
+    if (storeType === "shopify" && userId) {
+      const connection = await getShopifyConnectionForUser(userId);
+      if (connection) {
+        try {
+          const [products, infoContent] = await Promise.all([
+            fetchShopifyAdminProducts(connection.shopDomain, connection.accessToken),
+            fetchShopifyAdminInfoContent(connection.shopDomain, connection.accessToken).catch(() => ""),
+          ]);
+          let title = "";
+          let description = "";
+          let homeContent = "";
+          try {
+            const homeRes = await fetchWithTimeout(url);
+            if (homeRes.ok) {
+              const parsed = loadCheerio(await homeRes.text());
+              title = parsed.title;
+              description = parsed.description;
+              homeContent = parsed.content;
+            }
+          } catch {
+            /* homepage fetch is best-effort; Admin API data is authoritative either way */
+          }
+          if (!title) title = new URL(getBaseUrl(url)).hostname || connection.shopDomain;
+          const finalContent = [homeContent, infoContent].filter(Boolean).join("\n\n");
+          const mappedProducts = products.map((p) => ({ name: p.name, price: p.price, url: p.url }));
+          logCrawl({
+            userId,
+            url,
+            status: "success",
+            storeType,
+            productsFound: mappedProducts.length,
+            durationMs: Date.now() - startTime,
+          });
+          return NextResponse.json({ title, description, content: finalContent, products: mappedProducts });
+        } catch (adminErr) {
+          console.warn("Shopify Admin API fetch failed, falling back to public feed scraping:", adminErr);
+          // fall through to the public-feed/scraping path below
+        }
+      }
+    }
+
+    // 2) If store type is set, try product feed + sitemap scraper first
     if (storeType) {
       try {
         const result = await runScraper(url, storeType, loadCheerio);
@@ -601,7 +663,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2) Single-page scrape (legacy + fallback)
+    // 3) Single-page scrape (legacy + fallback)
     let response = await fetchWithTimeout(url);
     if (!response.ok && (response.status === 429 || response.status === 503)) {
       await new Promise((r) => setTimeout(r, 4000));

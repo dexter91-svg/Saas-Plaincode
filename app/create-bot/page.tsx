@@ -45,6 +45,30 @@ export default function CreateBotPage() {
   const [storeType, setStoreType] = useState<string | null>(null);
   const [storeTypeLoading, setStoreTypeLoading] = useState(true);
   const [atStoreLimit, setAtStoreLimit] = useState(false);
+  const [shopifyConnected, setShopifyConnected] = useState<boolean | null>(null);
+  const [shopifyShopDomain, setShopifyShopDomain] = useState<string | null>(null);
+  const [shopifyDomainInput, setShopifyDomainInput] = useState("");
+  const [shopifyNotice, setShopifyNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  // One-time: read ?shopify=connected|error from the OAuth callback redirect, then clean the URL.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("shopify");
+    if (!status) return;
+    if (status === "connected") {
+      const shop = params.get("shop");
+      setShopifyNotice({ type: "success", message: `Connected to ${shop || "your Shopify store"}.` });
+      if (shop) setShopifyShopDomain(shop);
+      setShopifyConnected(true);
+    } else if (status === "error") {
+      const reason = params.get("reason") || "unknown";
+      setShopifyNotice({
+        type: "error",
+        message: `Couldn't connect your Shopify store (${reason.replace(/_/g, " ")}). Please try again.`,
+      });
+    }
+    window.history.replaceState({}, "", window.location.pathname);
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -83,6 +107,7 @@ export default function CreateBotPage() {
       })
       .catch(() => setAtStoreLimit(false));
   }, [storeTypeLoading]);
+
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +116,22 @@ export default function CreateBotPage() {
   const [scanStep, setScanStep] = useState<ScanStep>("idle");
   const [progressPercent, setProgressPercent] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    if (storeTypeLoading || storeType !== "shopify") return;
+    fetch("/api/shopify/connection")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.connected) {
+          setShopifyConnected(true);
+          setShopifyShopDomain(d.shopDomain);
+          setUrl((prev) => prev || `https://${d.shopDomain}`);
+        } else {
+          setShopifyConnected(false);
+        }
+      })
+      .catch(() => setShopifyConnected(false));
+  }, [storeTypeLoading, storeType]);
 
   const siteLabelFromUrl = (raw: string): string => {
     const s = (raw || "").trim();
@@ -302,6 +343,11 @@ export default function CreateBotPage() {
   }
 
   const isShopify = storeType === "shopify";
+  const normalizedShopDomain = (() => {
+    const v = shopifyDomainInput.trim().toLowerCase();
+    if (!v) return "";
+    return v.endsWith(".myshopify.com") ? v : `${v}.myshopify.com`;
+  })();
 
   if (atStoreLimit) {
     return (
@@ -342,6 +388,62 @@ export default function CreateBotPage() {
             Enter your website URL. Our AI will learn your products and brand.
           </p>
         </div>
+
+        {isShopify && (
+          <div className="mt-6 rounded-2xl border border-ink/[.08] bg-white p-6 shadow-[0_4px_20px_-8px_rgba(43,34,28,.08)]">
+            {shopifyNotice && (
+              <div
+                className={`mb-4 rounded-lg border px-3 py-2 font-manrope text-sm ${
+                  shopifyNotice.type === "success"
+                    ? "border-green-200 bg-green-50 text-green-700"
+                    : "border-red-200 bg-red-50 text-red-600"
+                }`}
+              >
+                {shopifyNotice.message}
+              </div>
+            )}
+            {shopifyConnected ? (
+              <div className="flex items-center gap-2 font-manrope text-sm font-semibold text-green-700">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-700">
+                  ✓
+                </span>
+                Connected to {shopifyShopDomain} via the Shopify Admin API
+              </div>
+            ) : (
+              <>
+                <p className="font-manrope text-sm font-semibold text-ink">Connect with Shopify</p>
+                <p className="mt-1 font-manrope text-sm text-warm-body">
+                  Authorize read-only access to your products and policies — more reliable than scraping your
+                  storefront, and can&apos;t be blocked by bot protection.
+                </p>
+                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <input
+                    type="text"
+                    placeholder="your-store.myshopify.com"
+                    value={shopifyDomainInput}
+                    onChange={(e) => setShopifyDomainInput(e.target.value)}
+                    className={`${INPUT_CLASS} flex-1`}
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                  />
+                  <a
+                    href={
+                      normalizedShopDomain
+                        ? `/api/shopify/install?shop=${encodeURIComponent(normalizedShopDomain)}`
+                        : undefined
+                    }
+                    className={`${PRIMARY_BUTTON_CLASS} w-full text-center sm:w-auto ${
+                      !normalizedShopDomain ? "pointer-events-none opacity-50" : ""
+                    }`}
+                  >
+                    Connect with Shopify
+                  </a>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         <div className="mt-6 rounded-2xl border border-ink/[.08] bg-white p-6 shadow-[0_4px_20px_-8px_rgba(43,34,28,.08)]">
           <form onSubmit={handleSubmit} className="space-y-4">
